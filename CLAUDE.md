@@ -13,5 +13,6 @@
 - Тесты: `python -m pytest -q`.
 - Cesium for Unreal 2.30.0 установлен в движок (`Engine/Plugins/Marketplace`), карта `/Game/CesiumCity` и сценарий `scenarios/cesium_demo.yaml` — см. раздел 10 файла опыта.
 - Демонстрация всего сразу: `scripts/demo.sh` (пульт AltHold/Acro, `--followers`, экраны камер, алгоритмы без связи `visual_follow`/`flock`) — см. раздел 14 файла опыта.
+- Журнал стиков пульта RadioMaster (evdev, отдельный процесс): `python -m multiuav sticks list|map|log` — см. раздел 25 файла опыта.
 - UBA в Unreal отключён (`~/.config/Unreal Engine/UnrealBuildTool/BuildConfiguration.xml`): с ним сборка AirSim зависала.
 - Пользователь пишет по-русски и учится: объясняй, что делает каждая команда.

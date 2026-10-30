@@ -1,0 +1,25 @@
+{
+  "device_name": "EdgeTX Radiomaster Pocket Joystick",
+  "axes": {
+    "throttle": {
+      "code": 2,
+      "name": "ABS_Z",
+      "inverted": true
+    },
+    "yaw": {
+      "code": 3,
+      "name": "ABS_RX",
+      "inverted": false
+    },
+    "pitch": {
+      "code": 1,
+      "name": "ABS_Y",
+      "inverted": false
+    },
+    "roll": {
+      "code": 0,
+      "name": "ABS_X",
+      "inverted": false
+    }
+  }
+}

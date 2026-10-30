@@ -5,6 +5,7 @@
   settings  создать settings.json для Cosys-AirSim из сценария
   cameras   экраны с камер ведомых поверх окна Unreal
   gamepad   показать оси геймпада, чтобы настроить раскладку
+  sticks    журнал стиков пульта через evdev (отдельно от симулятора)
 """
 
 from __future__ import annotations
@@ -133,6 +134,18 @@ def cmd_gamepad(args) -> None:
         print()
 
 
+def cmd_sticks(args) -> None:
+    from . import sticklog
+
+    if args.action == "list":
+        sticklog.run_list(args.device)
+    elif args.action == "map":
+        sticklog.run_map(args.device, args.map)
+    else:
+        sticklog.run_log(args.device, args.map, args.out, args.profile, args.adc_filter,
+                         args.note, args.keep_fuzz, args.fsync)
+
+
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(prog="multiuav", description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -193,6 +206,22 @@ def main(argv: list[str] | None = None) -> None:
     gamepad = sub.add_parser("gamepad", help="показать оси геймпада")
     gamepad.add_argument("--index", type=int, default=0)
     gamepad.set_defaults(func=cmd_gamepad)
+
+    sticks = sub.add_parser("sticks", help="журнал стиков пульта через evdev")
+    sticks.add_argument("action", choices=["list", "map", "log"],
+                        help="list — оси и диапазоны, map — разметить стики, log — записать попытку")
+    sticks.add_argument("--device", help="/dev/input/eventN (по умолчанию — найти пульт)")
+    sticks.add_argument("--map", type=Path, default=Path("radio/sticks_map.json"),
+                        help="файл соответствия стиков и осей")
+    sticks.add_argument("--out", type=Path, help="папка попытки (по умолчанию runs/sticks_<время>)")
+    sticks.add_argument("--profile", help="профиль модели в EdgeTX: имя, расходы, экспоненты")
+    sticks.add_argument("--adc-filter", choices=["off", "on", "unknown"], default="unknown",
+                        help="фильтр АЦП в EdgeTX")
+    sticks.add_argument("--note", default="", help="заметка в паспорт попытки")
+    sticks.add_argument("--keep-fuzz", action="store_true", help="не обнулять Fuzz и Flat")
+    sticks.add_argument("--fsync", action="store_true",
+                        help="fsync после каждой строки (по умолчанию — раз в секунду)")
+    sticks.set_defaults(func=cmd_sticks)
 
     args = parser.parse_args(argv)
     args.func(args)
