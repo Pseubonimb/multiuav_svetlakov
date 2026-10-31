@@ -1,0 +1,32 @@
+# Полёт над фотореалистичными 3D-тайлами Google (Cesium for Unreal) на карте CesiumCity.
+# Высота 100 м над точкой старта — выше большинства зданий; если в выбранном
+# месте дома выше, поднимите altitude и высоту в waypoints.
+# Ведущий летит по букве «П» 150 x 150 м и зависает в финишной зоне.
+# Запуск: settings --write -> карта CesiumCity (Play или -game) -> run --backend cosys.
+name: cesium_demo
+drones: 5
+rate_hz: 20
+duration_s: 150
+
+start:
+  north: 0
+  east: 0
+  altitude: 100
+  heading_deg: 0
+  spacing: 6
+
+leader:
+  algorithm: waypoints
+  params:
+    speed: 8
+    waypoints:
+      - [150, 0, 100]
+      - [150, 150, 100]
+      - [0, 150, 100]
+
+followers:
+  algorithm: leader_path
+  params:
+    distance: 8
+
+finish: {north: [-15, 45], east: [135, 165]}  # конец маршрута с запасом на колонну, далеко от старта

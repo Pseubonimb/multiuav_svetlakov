@@ -1,0 +1,14 @@
+{
+  "scenario": "corner",
+  "leader": "waypoints",
+  "followers": "single_file",
+  "drones": 5,
+  "finished": 4,
+  "collided": 1,
+  "success_rate": 0.8,
+  "group_time_s": 37.5,
+  "sim_time_s": 37.5,
+  "collisions": {
+    "4": 20.3
+  }
+}

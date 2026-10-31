@@ -1,0 +1,46 @@
+# 3D, шаг 1: Cosys-AirSim, сцена Blocks, без стен. Ведущий — автопилот «аккуратный пилот»
+# (три поворота на 90°, остановка на 4 с) на высоте 30 м над кубами сцены. Ведомые line_follow.
+#
+#   python -m multiuav settings scenarios/line_blocks.yaml --write   # settings.json на 7 дронов
+#   (запустить Blocks и дождаться сцены)
+#   python -m multiuav run scenarios/line_blocks.yaml --backend cosys --out runs/lb --plot runs/lb.png
+name: line_blocks
+drones: 7
+rate_hz: 10
+duration_s: 200
+
+start: {north: 0, east: 0, altitude: 30, heading_deg: 0, spacing: 6}
+
+leader:
+  algorithm: stop_and_go
+  params:
+    speed: 5
+    accel: 2
+    waypoints:
+      - [60, 0, 30]
+      - [60, 40, 30, 4]          # остановка посреди улицы на 4 с
+      - [60, 80, 30]
+      - [140, 80, 30]
+      - [140, 15, 30]
+
+followers:
+  algorithm: line_follow
+  params:
+    distance: 6
+    k_speed: 0.5      # дрон в Unreal инерционнее: мягче догонять...
+    k_vel: 1.0        # ...и мягче регулятор скорости, чтобы скорость не раскачивалась
+    look: 4           # команды в Unreal исполняются с запаздыванием: смотреть дальше по пути
+    eps: 0.6          # и мягче возвращаться на путь — иначе ведомые раскачиваются,
+                      # и раскачка растёт к хвосту колонны (docs/line_follow.md)
+    clock: auto       # цикл в Unreal может отставать — время берётся по часам
+    seed: 0
+    debug: true       # печатать в терминал, когда сосед пропал и когда путь записан заново
+
+perception:
+  lidar_range: 0      # без лидаров: 7 лидаров замедляют Unreal почти вдвое, а сам алгоритм
+                      # лидар не использует (стен здесь нет)
+  vision_range: 40
+  fov_deg: 140        # передняя камера
+  noise: 0.03
+
+finish: {north: [135, 145], east: [10, 75]}

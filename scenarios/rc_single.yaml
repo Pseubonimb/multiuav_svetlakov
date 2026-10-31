@@ -1,0 +1,38 @@
+# Один дрон с пульта RadioMaster (EdgeTX, режим USB Joystick), каналы на экране Unreal.
+# Раскладка осей — черновая под AETR (CH1 крен, CH2 тангаж, CH3 газ, CH4 рысканье):
+# проверь её командой `python -m multiuav gamepad` и поправь axes/invert ниже.
+# Газ работает как AltHold: середина стика — висеть, выше — подъём, ниже — снижение.
+# Запуск:
+#   python -m multiuav settings scenarios/rc_single.yaml --write
+#   (в Unreal: Play)
+#   python -m multiuav run scenarios/rc_single.yaml --backend cosys
+name: rc_single
+# Тяга x2.5 (тяга/вес ~4,3 вместо 1,7): поворот 90° на 15 м/с за 1,7 с и снос 9 м вместо 2,3 с и 17 м.
+# Нужны патчи плагина 02 и 03 (airsim_patches/); в готовой сборке без них ключ молча игнорируется.
+# generic — обычный дрон.
+model: fast2.5
+# Сопротивление винтов, с/м: без него (0) дрон скользит, как по льду — с 15 м/с катится 145 м.
+# 0.02 — путь 55 м, потолок ~28 м/с; 0.035 — 31 м, ~23 м/с; 0.05 — 18 м, ~20 м/с (наклон 60°).
+# Меняется без пересборки: settings --write и перезапуск Unreal. Нужен патч плагина 04.
+rotor_drag: 0.035
+drones: 1
+rate_hz: 30
+duration_s: null  # без ограничения времени; остановить полёт — Ctrl+C в терминале
+
+start:
+  north: 0
+  east: 0
+  altitude: 10
+  heading_deg: 0
+
+leader:
+  algorithm: gamepad
+  params:
+    joystick: 0
+    axes: {roll: 0, pitch: 1, throttle: 2, yaw: 3}
+    invert: []        # у пульта «стик вверх» обычно уже плюс; если ось работает наоборот — впиши её сюда
+    deadzone: 0.03    # стики пульта точнее геймпада
+    mode_switch: {axis: 4, acro_above: 0.0}
+
+stop_on_collision: false  # задел куб или жёстко сел — летим дальше (столкновение попадёт в журнал)
+show_rc: true  # строка «CH1 Roll … CH4 Yaw» поверх окна Unreal, 5 раз в секунду

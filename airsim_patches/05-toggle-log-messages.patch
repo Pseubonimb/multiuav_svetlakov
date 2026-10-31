@@ -1,0 +1,33 @@
+--- a/Source/SimHUD/SimHUD.h
++++ b/Source/SimHUD/SimHUD.h
+@@ -29,6 +29,7 @@
+     void inputEventToggleReport();
+     void inputEventToggleHelp();
+     void inputEventToggleTrace();
++    void inputEventToggleLogMessages();
+     void inputEventToggleSubwindow0();
+     void inputEventToggleSubwindow1();
+     void inputEventToggleSubwindow2();
+--- a/Source/SimHUD/SimHUD.cpp
++++ b/Source/SimHUD/SimHUD.cpp
+@@ -95,6 +95,12 @@
+     simmode_->toggleTraceAll();
+ }
+ 
++void ASimHUD::inputEventToggleLogMessages()
++{
++    // F2: show/hide on-screen log messages (LogMessagesVisible in settings.json sets the initial state)
++    UAirBlueprintLib::setLogMessagesVisibility(UAirBlueprintLib::getLogMessagesHidden());
++}
++
+ void ASimHUD::updateWidgetSubwindowVisibility()
+ {
+     for (int window_index = 0; window_index < AirSimSettings::kSubwindowCount; ++window_index) {
+@@ -228,6 +234,7 @@
+     UAirBlueprintLib::BindActionToKey("InputEventToggleReport", EKeys::Semicolon, this, &ASimHUD::inputEventToggleReport);
+     UAirBlueprintLib::BindActionToKey("InputEventToggleHelp", EKeys::F1, this, &ASimHUD::inputEventToggleHelp);
+     UAirBlueprintLib::BindActionToKey("InputEventToggleTrace", EKeys::T, this, &ASimHUD::inputEventToggleTrace);
++    UAirBlueprintLib::BindActionToKey("InputEventToggleLogMessages", EKeys::F2, this, &ASimHUD::inputEventToggleLogMessages);
+ 
+     UAirBlueprintLib::BindActionToKey("InputEventToggleSubwindow0", EKeys::One, this, &ASimHUD::inputEventToggleSubwindow0);
+     UAirBlueprintLib::BindActionToKey("InputEventToggleSubwindow1", EKeys::Two, this, &ASimHUD::inputEventToggleSubwindow1);

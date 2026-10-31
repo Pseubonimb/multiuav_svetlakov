@@ -1,0 +1,7 @@
+# Один дрон для замеров physics_tests/run_model.sh: модель и rotor_drag скрипт подставляет сам.
+name: acro_test
+drones: 1
+rate_hz: 50
+model: generic
+start: {north: 0, east: 0, altitude: 10, heading_deg: 0}
+leader: {algorithm: gamepad}

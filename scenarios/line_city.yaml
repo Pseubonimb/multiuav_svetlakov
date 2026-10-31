@@ -1,0 +1,45 @@
+# Город: три поворота по улицам шириной 10 м, ведущий останавливается посреди улицы на 4 с,
+# после последнего поворота вылетает на открытое место. Ведомые line_follow.
+# Запуск: python -m multiuav run scenarios/line_city.yaml --out runs/line_city --plot runs/line_city.png
+# Длинная колонна: --drones 30 (о пределе длины колонны — docs/line_follow.md)
+name: line_city
+drones: 5
+rate_hz: 20
+duration_s: 300
+
+start: {north: 0, east: 0, altitude: 10, heading_deg: 0, spacing: 6}
+
+leader:
+  algorithm: stop_and_go          # «аккуратный пилот»: плавный разгон и торможение
+  params:
+    speed: 5
+    accel: 2
+    waypoints:                    # [север, восток, высота] или [..., пауза в секундах]
+      - [60, 0, 10]
+      - [60, 40, 10, 4]           # остановка посреди улицы на 4 с
+      - [60, 80, 10]
+      - [140, 80, 10]
+      - [140, -700, 10]
+
+followers:
+  algorithm: line_follow
+  params:
+    distance: 6
+    clock: sim
+    seed: 0
+
+perception:
+  lidar_range: 40
+  vision_range: 40
+  fov_deg: 140
+  noise: 0.03
+
+world:
+  buildings:
+    - {north: [-400, 135], east: [-60, -5], height: 40}
+    - {north: [-400, 55], east: [5, 160], height: 40}
+    - {north: [65, 135], east: [-5, 75], height: 40}
+    - {north: [145, 200], east: [-60, 160], height: 40}
+    - {north: [55, 145], east: [85, 160], height: 40}
+
+finish: {north: [100, 200], east: [-800, -70]}   # выход из города на открытое место

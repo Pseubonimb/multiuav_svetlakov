@@ -1,0 +1,29 @@
+# Первая проверка в Cosys-AirSim на стандартной сцене Blocks.
+# Ведущий облетает квадрат 40 x 40 м на высоте 30 м (выше кубов сцены),
+# ведомые следуют за ним. Для ручного управления: --leader gamepad.
+name: blocks_demo
+drones: 5
+rate_hz: 20
+duration_s: 120
+
+start:
+  north: 0
+  east: 0
+  altitude: 10
+  heading_deg: 0
+  spacing: 5
+
+leader:
+  algorithm: waypoints
+  params:
+    speed: 4
+    waypoints:
+      - [40, 0, 30]
+      - [40, 40, 30]
+      - [0, 40, 30]
+      - [0, 0, 30]
+
+followers:
+  algorithm: leader_path
+  params:
+    distance: 5

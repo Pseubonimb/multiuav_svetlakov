@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Схема MultiUAV</title>
+<style>
+  :root { --bg:#ffffff; --fg:#1f2328; --muted:#59636e; --box:#f6f8fa; --line:#8c959f;
+          --py:#e8f0fe; --pyb:#4c7be0; --ue:#fdf1e7; --ueb:#d9822b; --cfg:#eef7ee; --cfgb:#3c8d40;
+          --bad:#d1242f; --fixed:#1a7f37; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#0d1117; --fg:#e6edf3; --muted:#9198a1;
+          --box:#161b22; --line:#6e7681; --py:#16233b; --pyb:#6d9bff; --ue:#2d1d10; --ueb:#e8954a;
+          --cfg:#132a16; --cfgb:#57ab5a; --bad:#ff6b6b; --fixed:#3fb950; } }
+  body { margin:0; padding:16px; background:var(--bg); color:var(--fg);
+         font:14px/1.5 system-ui, "DejaVu Sans", sans-serif; }
+  h1 { font-size:20px; margin:0 0 4px; } p.sub { color:var(--muted); margin:0 0 12px; }
+  svg { width:100%; max-width:1200px; height:auto; display:block; }
+  svg text { fill:var(--fg); font-size:13px; } svg .s { fill:var(--muted); font-size:11.5px; }
+  svg .h { font-weight:600; font-size:14px; }
+  .py rect.c { fill:var(--py); stroke:var(--pyb); } .ue rect.c { fill:var(--ue); stroke:var(--ueb); }
+  .cfg rect.c { fill:var(--cfg); stroke:var(--cfgb); }
+  rect.b { fill:var(--box); stroke:var(--line); stroke-width:1; }
+  path.a { stroke:var(--line); stroke-width:1.5; fill:none; marker-end:url(#arr); }
+  path.d { stroke:var(--line); stroke-width:1.5; fill:none; stroke-dasharray:5 4; marker-end:url(#arr); }
+  circle.bad { fill:var(--bad); } circle.ok { fill:var(--fixed); } text.n { fill:#fff; font-weight:700; font-size:12px; }
+  ol { max-width:1150px; padding-left:22px; } li { margin:6px 0; }
+  .tag { display:inline-block; padding:0 6px; border-radius:4px; color:#fff; font-size:12px; }
+  .t-bad { background:var(--bad); } .t-ok { background:var(--fixed); }
+  code { font-family:ui-monospace, monospace; font-size:12.5px; }
+</style>
+</head>
+<body>
+<h1>Как устроен симулятор MultiUAV сейчас</h1>
+<p class="sub">Три процесса: <b>run</b> (управление), <b>cameras</b> (экраны) и <b>Unreal</b> (мир и физика). Цифры в кружках — места, где были или могут быть ошибки (расшифровка ниже).</p>
+
+<svg viewBox="0 0 1200 820" role="img" aria-label="Схема блоков симулятора MultiUAV и связей между ними">
+  <defs><marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+    <path d="M0 0L10 5L0 10z" fill="currentColor" style="fill:var(--line)"/></marker></defs>
+
+  <!-- Левая колонка: оператор и настройка -->
+  <g class="cfg"><rect class="c" x="10" y="10" width="270" height="800" rx="14"/>
+    <text class="h" x="24" y="36">Оператор и настройка</text></g>
+  <rect class="b" x="25" y="55" width="240" height="66" rx="8"/>
+  <text class="h" x="40" y="80">Пульт RadioMaster</text>
+  <text class="s" x="40" y="99">USB Joystick, оси AETR + тумблер</text>
+  <text class="s" x="40" y="114">проверка: multiuav gamepad</text>
+
+  <rect class="b" x="25" y="160" width="240" height="80" rx="8"/>
+  <text class="h" x="40" y="185">Сценарий YAML + флаги</text>
+  <text class="s" x="40" y="204">rc_group.yaml, corner.yaml…</text>
+  <text class="s" x="40" y="219">--followers N, --mode, --algorithm</text>
+  <text class="s" x="40" y="234">perception, limits, start</text>
+
+  <rect class="b" x="25" y="280" width="240" height="80" rx="8"/>
+  <text class="h" x="40" y="305">scripts/demo.sh</text>
+  <text class="s" x="40" y="324">1) settings  2) запуск Unreal -game</text>
+  <text class="s" x="40" y="339">3) ждёт порт 41451  4) cameras</text>
+  <text class="s" x="40" y="354">5) run</text>
+
+  <rect class="b" x="25" y="420" width="240" height="80" rx="8"/>
+  <text class="h" x="40" y="445">settings.json</text>
+  <text class="s" x="40" y="464">~/Documents/AirSim/</text>
+  <text class="s" x="40" y="479">Drone0…DroneN, лидар у каждого</text>
+  <text class="s" x="40" y="494">читается только при старте игры</text>
+
+  <rect class="b" x="25" y="560" width="240" height="96" rx="8"/>
+  <text class="h" x="40" y="585">Результаты runs/demo_…</text>
+  <text class="s" x="40" y="604">track.csv (+ каналы RC, режим)</text>
+  <text class="s" x="40" y="619">summary.json, картинка .png</text>
+  <text class="s" x="40" y="634">unreal.log, cameras.log</text>
+  <text class="s" x="40" y="649">лог игры: Blocks 5.8/Saved/Logs</text>
+
+  <!-- Средняя колонка: Python -->
+  <g class="py"><rect class="c" x="300" y="10" width="470" height="800" rx="14"/>
+    <text class="h" x="314" y="36">Python: MultiUAV</text></g>
+  <rect class="b" x="315" y="55" width="440" height="66" rx="8"/>
+  <text class="h" x="330" y="80">SwarmManager — цикл 20 раз в секунду</text>
+  <text class="s" x="330" y="99">states() → кто что видит → step() у каждого дрона → send()</text>
+  <text class="s" x="330" y="114">пишет журнал; Ctrl+C — дроны зависают, журнал сохраняется</text>
+
+  <rect class="b" x="315" y="150" width="440" height="66" rx="8"/>
+  <text class="h" x="330" y="175">Восприятие (perception.py) — только для vision_only</text>
+  <text class="s" x="330" y="194">сосед виден: ближе vision_range, в поле зрения, не заслонён</text>
+  <text class="s" x="330" y="209">по своему дальномеру; + ошибка оценки положения</text>
+
+  <rect class="b" x="315" y="245" width="210" height="100" rx="8"/>
+  <text class="h" x="330" y="270">Ведущий (дрон 0)</text>
+  <text class="s" x="330" y="289">gamepad: читает пульт,</text>
+  <text class="s" x="330" y="304">режим althold / acro</text>
+  <text class="s" x="330" y="319">waypoints: автопилот</text>
+  <text class="s" x="330" y="334">по точкам (для проверок)</text>
+
+  <rect class="b" x="545" y="245" width="210" height="100" rx="8"/>
+  <text class="h" x="560" y="270">Ведомые (1…N)</text>
+  <text class="s" x="560" y="289">visual_follow, flock — по</text>
+  <text class="s" x="560" y="304">зрению + обход по лидару</text>
+  <text class="s" x="560" y="319">single_file, leader_path —</text>
+  <text class="s" x="560" y="334">видят всех (без зрения)</text>
+
+  <rect class="b" x="315" y="375" width="440" height="50" rx="8"/>
+  <text class="h" x="330" y="397">RcOverride: 4 канала 1000–2000 + режим</text>
+  <text class="s" x="330" y="415">общий язык команд для всех алгоритмов и бэкендов</text>
+
+  <rect class="b" x="315" y="455" width="210" height="110" rx="8"/>
+  <text class="h" x="330" y="480">Бэкенд kinematic</text>
+  <text class="s" x="330" y="499">своя простая физика</text>
+  <text class="s" x="330" y="514">AltHold и Acro</text>
+  <text class="s" x="330" y="529">дальномер — лучи по зданиям,</text>
+  <text class="s" x="330" y="544">дронов НЕ видит</text>
+  <text class="s" x="330" y="559">без 3D (scripts/demo.sh -k)</text>
+
+  <rect class="b" x="545" y="455" width="210" height="110" rx="8"/>
+  <text class="h" x="560" y="480">Бэкенд cosys</text>
+  <text class="s" x="560" y="499">RPC-клиент cosysairsim</text>
+  <text class="s" x="560" y="514">AltHold → moveByRollPitch…Z</text>
+  <text class="s" x="560" y="529">Acro → moveByAngleRates…</text>
+  <text class="s" x="560" y="544">лидар → дальность по 72</text>
+  <text class="s" x="560" y="559">секторам (lidar_to_ranges)</text>
+
+  <rect class="b" x="315" y="640" width="440" height="80" rx="8"/>
+  <text class="h" x="330" y="665">Отдельный процесс: multiuav cameras</text>
+  <text class="s" x="330" y="684">5 раз в секунду берёт кадры front_center ведомых по RPC</text>
+  <text class="s" x="330" y="699">и рисует окно без рамки поверх всех, в левом верхнем углу</text>
+  <text class="s" x="330" y="714">с подписями #1…#N</text>
+
+  <!-- Правая колонка: Unreal -->
+  <g class="ue"><rect class="c" x="790" y="10" width="400" height="800" rx="14"/>
+    <text class="h" x="804" y="36">Unreal Engine 5.8 + плагин Cosys-AirSim</text></g>
+  <rect class="b" x="805" y="55" width="370" height="66" rx="8"/>
+  <text class="h" x="820" y="80">RPC-сервер, порт 41451</text>
+  <text class="s" x="820" y="99">один на всех клиентов: run и cameras</text>
+  <text class="s" x="820" y="114">работает только пока идёт игра (Play / -game)</text>
+
+  <rect class="b" x="805" y="150" width="370" height="66" rx="8"/>
+  <text class="h" x="820" y="175">SimpleFlight у каждого дрона</text>
+  <text class="s" x="820" y="194">AltHold: держит углы и высоту</text>
+  <text class="s" x="820" y="209">Acro: держит угловые скорости, тяга — от газа</text>
+
+  <rect class="b" x="805" y="245" width="370" height="50" rx="8"/>
+  <text class="h" x="820" y="267">Физика AirSim</text>
+  <text class="s" x="820" y="285">тяга роторов, инерция, сопротивление воздуха</text>
+
+  <rect class="b" x="805" y="325" width="370" height="96" rx="8"/>
+  <text class="h" x="820" y="350">Датчики дрона</text>
+  <text class="s" x="820" y="369">Лидар: 5 лучей ±15°, 360°, 20 м, на 0,3 м выше центра</text>
+  <text class="s" x="820" y="384">видит здания, землю И другие дроны</text>
+  <text class="s" x="820" y="399">Камеры: front_center и др. (256×144)</text>
+  <text class="s" x="820" y="414">+ IMU, GPS, барометр, магнитометр</text>
+
+  <rect class="b" x="805" y="455" width="370" height="80" rx="8"/>
+  <text class="h" x="820" y="480">Мир: FlyingExampleMap (Blocks) / CesiumCity</text>
+  <text class="s" x="820" y="499">геометрия, столкновения (simGetCollisionInfo)</text>
+  <text class="s" x="820" y="514">кубы Blocks; тайлы Google через Cesium</text>
+  <text class="s" x="820" y="529">строка RC и режима поверх окна (show_rc)</text>
+
+  <rect class="b" x="805" y="565" width="370" height="66" rx="8"/>
+  <text class="h" x="820" y="590">Видеокарта: Vulkan, RTX 4050, 6 ГБ</text>
+  <text class="s" x="820" y="609">рисует NVIDIA, экран — на встроенной AMD (PRIME)</text>
+  <text class="s" x="820" y="624">аппаратная трассировка лучей выключена</text>
+
+  <rect class="b" x="805" y="660" width="370" height="60" rx="8"/>
+  <text class="h" x="820" y="685">Экран</text>
+  <text class="s" x="820" y="704">окно игры 1600×900 + окно камер поверх него</text>
+
+  <!-- Связи -->
+  <path class="a" d="M265 88 H290 V295 H315"/>                         <!-- пульт -> ведущий -->
+  <path class="a" d="M265 200 H290 V88 H315"/>                          <!-- сценарий -> менеджер -->
+  <path class="d" d="M145 240 V280"/>                                   <!-- сценарий -> demo.sh -->
+  <path class="d" d="M145 360 V420"/>                                   <!-- demo.sh -> settings -->
+  <path class="a" d="M265 460 H282 V790 H785 V495 H805"/>               <!-- settings -> мир (при старте) -->
+  <path class="d" d="M265 320 H278 V680 H315"/>                         <!-- demo.sh -> cameras -->
+  <path class="a" d="M535 121 V150"/>                                   <!-- менеджер -> восприятие -->
+  <path class="a" d="M650 216 V245"/>                                   <!-- восприятие -> ведомые -->
+  <path class="a" d="M420 345 V375"/>  <path class="a" d="M650 345 V375"/>  <!-- алгоритмы -> RcOverride -->
+  <path class="a" d="M420 425 V455"/>  <path class="a" d="M650 425 V455"/>  <!-- RcOverride -> бэкенды -->
+  <path class="a" d="M755 500 H780 V100 H805"/>                         <!-- cosys -> RPC -->
+  <path class="a" d="M805 112 H775 V540 H755"/>                         <!-- RPC -> cosys (состояния, лидар) -->
+  <path class="a" d="M990 121 V150"/>  <path class="a" d="M990 216 V245"/>
+  <path class="a" d="M990 295 V325"/>  <path class="a" d="M990 421 V455"/>
+  <path class="a" d="M990 535 V565"/>  <path class="a" d="M990 631 V660"/>
+  <path class="a" d="M805 70 H765 V660 H755"/>                          <!-- RPC -> cameras -->
+  <path class="a" d="M755 700 H805"/>                                   <!-- cameras -> экран -->
+  <path class="a" d="M315 100 H295 V600 H265"/>                         <!-- менеджер -> результаты -->
+
+  <!-- Места ошибок -->
+  <g><circle class="ok" cx="1165" cy="335" r="11"/><text class="n" x="1161" y="339">1</text></g>
+  <g><circle class="bad" cx="1165" cy="384" r="11"/><text class="n" x="1161" y="388">2</text></g>
+  <g><circle class="bad" cx="1165" cy="470" r="11"/><text class="n" x="1161" y="474">3</text></g>
+  <g><circle class="bad" cx="255" cy="430" r="11"/><text class="n" x="251" y="434">4</text></g>
+  <g><circle class="bad" cx="745" cy="650" r="11"/><text class="n" x="741" y="654">5</text></g>
+  <g><circle class="bad" cx="255" cy="65" r="11"/><text class="n" x="251" y="69">6</text></g>
+  <g><circle class="bad" cx="1165" cy="575" r="11"/><text class="n" x="1161" y="579">7</text></g>
+  <g><circle class="bad" cx="745" cy="160" r="11"/><text class="n" x="741" y="164">8</text></g>
+  <g><circle class="bad" cx="515" cy="465" r="11"/><text class="n" x="511" y="469">9</text></g>
+</svg>
+
+<h2 style="font-size:16px">Где могут быть ошибки</h2>
+<ol>
+  <li><span class="tag t-ok">исправлено</span> <b>Лидар видел собственный корпус.</b> В полёте лучи упирались в свои винты и раму в 0,12–0,6 м: 66 из 72 секторов показывали «стену» в 12 см. Поэтому каждый сосед казался заслонённым — ведомые никого не видели и висели (прогон AltHold), а «стена» отталкивала их в одну сторону (в прогоне Acro ведомые 3 и 4 улетели на 140 м назад). Теперь точки ближе 1 м отбрасываются, лидар поднят на 0,3 м. Проверено вживую: 4 ведомых долетели за ведущим.</li>
+  <li><b>Лидар в Unreal видит другие дроны, а в kinematic — нет.</b> Ведомый на дистанции 6 м за предыдущим «упирается» в него лучом и на скорости выше ~3 м/с уходит вбок, отстаёт. Поэтому отлаженное в kinematic в Unreal ведёт себя иначе. Лечится тем, что точки в местах видимых соседей не считать препятствием, или пусть kinematic тоже «видит» дроны лучами.</li>
+  <li><b>Куб <code>TemplateCube_Rounded_99</code> на Blocks.</b> В обеих живых проверках ведомый 1 врезался именно в него, сбоку, на своей высоте — вероятно, лидар (трассировка по каналу Visibility) этот куб не видит. Отложено.</li>
+  <li><b>settings.json не совпадает со сценарием.</b> Читается только при старте игры. Поменяли число ведомых — нужно заново <code>settings --write</code> и перезапустить игру (demo.sh делает это сам, а при <code>-e</code> — нет).</li>
+  <li><b>Один RPC-сервер на всех.</b> Окно камер и цикл управления ходят в один порт 41451; если камеры стартуют до готовности симулятора — <code>Retry connection over the limit</code> (был в прогоне 16:22). Много кадров — медленнее цикл управления.</li>
+  <li><b>Оси пульта.</b> Номера осей, инверсия и тумблер режима — в <code>leader.params</code> сценария; ошибка здесь выглядит как «дрон летит не туда». В Acro газ — тяга: низ стика — моторы стоп.</li>
+  <li><b>Падения Unreal (<code>VK_ERROR_DEVICE_LOST</code>).</b> Случаются при смене окна (размер, всплывающие окна) на гибридной графике. Окно игры — фиксированного размера; окно камер открывается рядом, но своего swapchain Unreal не меняет.</li>
+  <li><b>Пороги зрения.</b> <code>vision_range</code> 40 м, <code>fov_deg</code>, запас на заслонение 1 м — если ведомые «теряют» соседей, смотреть сюда. Потеряв цель, ведомый летит по прогнозу её движения до 30 с.</li>
+  <li><b>Разница бэкендов.</b> kinematic — грубая модель (точка, без винтов, без инерции SimpleFlight); алгоритм, проходящий угол в kinematic, в Unreal надо проверять отдельно.</li>
+</ol>
+</body>
+</html>

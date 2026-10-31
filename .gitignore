@@ -1,0 +1,13 @@
+__pycache__/
+*.pyc
+*.egg-info/
+.venv/
+venv/
+runs/
+.pytest_cache/
+
+# Личные материалы и результаты прогонов — не для репозитория
+for_cogni/
+log.txt/
+corner.png
+drone_physics_report.md

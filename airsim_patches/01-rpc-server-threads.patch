@@ -1,0 +1,13 @@
+--- a/Source/SimMode/SimModeBase.cpp
++++ b/Source/SimMode/SimModeBase.cpp
+@@ -1705,7 +1705,9 @@
+ #endif
+ 
+         try {
+-            api_server_->start(false, spawned_actors_.Num() + 4);
++            // MultiUAV: команды движения держат поток до отмены, а камеры и чтение
++            // состояния ждут свободного — было spawned_actors_.Num() + 4.
++            api_server_->start(false, spawned_actors_.Num() * 2 + 16);
+         }
+         catch (std::exception& ex) {
+             UAirBlueprintLib::LogMessageString("Cannot start RpcLib Server", ex.what(), LogDebugLevel::Failure);

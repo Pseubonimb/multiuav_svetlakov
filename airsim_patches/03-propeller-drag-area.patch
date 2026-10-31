@@ -1,0 +1,13 @@
+--- a/Source/AirLib/include/vehicles/multirotor/MultiRotorPhysicsBody.hpp
++++ b/Source/AirLib/include/vehicles/multirotor/MultiRotorPhysicsBody.hpp
+@@ -194,7 +194,9 @@
+             //Drone is seen as central body that is connected to propellers via arm. We approximate central body as box of size x, y, z.
+             //The drag depends on area exposed so we also add area of propellers to approximate drag they may introduce due to their area.
+             //while moving along any axis, we find area that will be exposed in that direction
+-            real_T propeller_area = M_PIf * params.rotor_params.propeller_diameter * params.rotor_params.propeller_diameter;
++            // MultiUAV: площадь круга винта pi*D^2/4 — было pi*D^2, сверху дрон был
++            // как под зонтиком в 4 раза больше: "вязкий" разгон, на наклоне 45-55° не больше 14 м/с.
++            real_T propeller_area = M_PIf * params.rotor_params.propeller_diameter * params.rotor_params.propeller_diameter / 4.0f;
+             real_T propeller_xsection = M_PIf * params.rotor_params.propeller_diameter * params.rotor_params.propeller_height;
+ 
+             real_T top_bottom_area = params.body_box.x() * params.body_box.y();

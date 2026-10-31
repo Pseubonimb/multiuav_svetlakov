@@ -1,0 +1,82 @@
+--- a/Source/AirLib/include/common/AirSimSettings.hpp
++++ b/Source/AirLib/include/common/AirSimSettings.hpp
+@@ -415,6 +415,7 @@
+             //optional
+             std::string default_vehicle_state;
+             std::string pawn_path;
++            std::string model = "Generic"; // MultiUAV: "Fast" — быстрая модель SimpleFlight
+             bool allow_api_always = true;
+             bool auto_create = true;
+             bool enable_collision_passthrough = false;
+@@ -1042,6 +1043,7 @@
+ 
+             //optional settings_json
+             vehicle_setting->pawn_path = settings_json.getString("PawnPath", "");
++            vehicle_setting->model = settings_json.getString("Model", "Generic");
+             vehicle_setting->default_vehicle_state = settings_json.getString("DefaultVehicleState", "");
+             vehicle_setting->allow_api_always = settings_json.getBool("AllowAPIAlways",
+                                                                       vehicle_setting->allow_api_always);
+--- a/Source/AirLib/include/vehicles/multirotor/firmwares/simple_flight/SimpleFlightQuadXParams.hpp
++++ b/Source/AirLib/include/vehicles/multirotor/firmwares/simple_flight/SimpleFlightQuadXParams.hpp
+@@ -38,6 +38,14 @@
+ 
+             // Only Generic for now
+             setupFrameGenericQuad(params);
++
++            // MultiUAV: "Model": "Fast<k>" — та же рама, тяга x k (обороты x sqrt(k)):
++            // тяга/вес 1.7k вместо 1.7. Регуляторы под неё масштабирует SimpleFlightApi.
++            const float fast = vehicle_setting_ ? SimpleFlightApi::fastThrustScale(vehicle_setting_->model) : 0;
++            if (fast > 0) {
++                params.rotor_params.max_rpm *= std::sqrt(fast);
++                params.rotor_params.calculateMaxThrust();
++            }
+         }
+ 
+         virtual const SensorFactory* getSensorFactory() const override
+--- a/Source/AirLib/include/vehicles/multirotor/firmwares/simple_flight/SimpleFlightApi.hpp
++++ b/Source/AirLib/include/vehicles/multirotor/firmwares/simple_flight/SimpleFlightApi.hpp
+@@ -29,11 +29,44 @@
+     {
+ 
+     public:
++        // MultiUAV: "Fast" — тяга x1.3, "Fast2.5" — x2.5; другие модели — 0 (не быстрая)
++        static float fastThrustScale(const std::string& model)
++        {
++            if (model.rfind("Fast", 0) != 0)
++                return 0;
++            if (model.size() == 4)
++                return 1.3f;
++            try {
++                const float k = std::stof(model.substr(4));
++                return k >= 1.0f && k <= 4.0f ? k : 1.3f;
++            }
++            catch (...) {
++                return 1.3f;
++            }
++        }
++
+         SimpleFlightApi(const MultiRotorParams* vehicle_params, const AirSimSettings::VehicleSetting* vehicle_setting)
+             : vehicle_params_(vehicle_params)
+         {
+             readSettings(*vehicle_setting);
+ 
++            // MultiUAV: быстрая модель "Fast<k>" — тяга x k (см. SimpleFlightQuadXParams),
++            // наклон до 45° (было pi/5.5 = 32.7°), угловая скорость до 5 рад/с (было 2.5).
++            // Всё, что регуляторы выдают в долях газа, делим на k: та же команда даёт в k раз
++            // больше силы, и без этого дрон раскачивался, а AltHold не мог снизиться
++            // (висение на газе 1/(1.7k) оказывалось ниже минимального 0.3).
++            const float fast = fastThrustScale(vehicle_setting->model);
++            if (fast > 0) {
++                const float pi = 3.14159265359f;
++                params_.angle_level_pid.max_limit = simple_flight::Axis4r(pi / 4, pi / 4, pi, 1.0f);
++                params_.angle_rate_pid.max_limit = simple_flight::Axis3r(5.0f, 5.0f, 5.0f);
++                for (unsigned int axis = 0; axis < 3; ++axis)
++                    params_.angle_rate_pid.p[axis] /= fast;
++                params_.velocity_pid.p[3] /= fast;
++                params_.velocity_pid.i[3] /= fast;
++                params_.velocity_pid.min_throttle /= fast;
++            }
++
+             //TODO: set below properly for better high speed safety
+             safety_params_.vel_to_breaking_dist = safety_params_.min_breaking_dist = 0;
+ 

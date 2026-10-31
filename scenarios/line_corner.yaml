@@ -1,0 +1,39 @@
+# Поворот за угол: ведомые line_follow (по пути ведущего) — только своя одометрия
+# и передняя камера, без номеров, без связи, без GPS.
+# Запуск: python -m multiuav run scenarios/line_corner.yaml --out runs/line_corner --plot runs/line_corner.png
+name: line_corner
+drones: 5           # ведущий + 4 ведомых; другое число: --drones N
+rate_hz: 20
+duration_s: 150
+
+start: {north: 0, east: 0, altitude: 10, heading_deg: 0, spacing: 6}
+
+leader:
+  algorithm: waypoints
+  params:
+    speed: 6
+    waypoints:
+      - [60, 0, 10]
+      - [60, 160, 10]
+
+followers:
+  algorithm: line_follow
+  params:
+    distance: 6     # интервал по длине пути, м
+    clock: sim      # упрощённый симулятор: время — по симулятору
+    seed: 0         # другой seed — другие ошибки одометрии
+
+perception:
+  lidar_range: 40   # в упрощённом симуляторе заслонение зданиями проверяется по дальномеру,
+                    # поэтому его дальность не меньше дальности камеры (сам алгоритм дальномер не читает)
+  vision_range: 40
+  fov_deg: 140      # передняя камера
+  noise: 0.03       # ошибка оценки положения соседа — 3 % расстояния
+
+world:
+  buildings:
+    - {north: [-80, 55], east: [5, 180], height: 40}     # внутренний угол поворота
+    - {north: [-80, 65], east: [-60, -5], height: 40}    # слева от первой улицы
+    - {north: [65, 120], east: [-60, 180], height: 40}   # за поворотом
+
+finish: {north: [55, 65], east: [95, 180]}

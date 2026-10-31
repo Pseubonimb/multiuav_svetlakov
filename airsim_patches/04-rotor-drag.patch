@@ -1,0 +1,98 @@
+--- a/Source/AirLib/include/common/AirSimSettings.hpp
++++ b/Source/AirLib/include/common/AirSimSettings.hpp
+@@ -416,6 +416,7 @@
+             std::string default_vehicle_state;
+             std::string pawn_path;
+             std::string model = "Generic"; // MultiUAV: "Fast" — быстрая модель SimpleFlight
++            float rotor_drag = 0; // MultiUAV: "RotorDrag" — сопротивление винтов, с/м (0 — нет, как в исходном AirSim)
+             bool allow_api_always = true;
+             bool auto_create = true;
+             bool enable_collision_passthrough = false;
+@@ -1044,6 +1045,7 @@
+             //optional settings_json
+             vehicle_setting->pawn_path = settings_json.getString("PawnPath", "");
+             vehicle_setting->model = settings_json.getString("Model", "Generic");
++            vehicle_setting->rotor_drag = settings_json.getFloat("RotorDrag", 0);
+             vehicle_setting->default_vehicle_state = settings_json.getString("DefaultVehicleState", "");
+             vehicle_setting->allow_api_always = settings_json.getBool("AllowAPIAlways",
+                                                                       vehicle_setting->allow_api_always);
+--- a/Source/AirLib/include/physics/PhysicsBody.hpp
++++ b/Source/AirLib/include/physics/PhysicsBody.hpp
+@@ -23,6 +23,8 @@
+     public: //interface
+         virtual real_T getRestitution() const = 0;
+         virtual real_T getFriction() const = 0;
++        // MultiUAV: k сопротивления винтов (см. MultiRotorParams), у других тел — нет
++        virtual real_T getRotorDragCoefficient() const { return 0; }
+ 
+         //derived class may return covariant type
+         virtual uint wrenchVertexCount() const
+--- a/Source/AirLib/include/physics/FastPhysicsEngine.hpp
++++ b/Source/AirLib/include/physics/FastPhysicsEngine.hpp
+@@ -266,6 +266,24 @@
+             }
+         }
+ 
++        // MultiUAV: сопротивление винтов (rotor drag). Лопасть, идущая навстречу потоку, тянет сильнее
++        // и отклоняется — получается сила против скорости поперёк оси винтов, пропорциональная тяге:
++        // F = -k * T * v. Её нет в исходном AirSim, поэтому дрон скользил, как по льду.
++        static Wrench getRotorDragWrench(const PhysicsBody& body, const Quaternionr& orientation,
++                                         const Wrench& body_wrench, const Vector3r& linear_vel, const Vector3r& wind_world)
++        {
++            Wrench wrench = Wrench::zero();
++            const real_T k = body.getRotorDragCoefficient();
++            if (k <= 0)
++                return wrench;
++            // body_wrench.force — сумма сил винтов в мировых осях; тяга направлена по -Z корпуса
++            const real_T thrust = std::max(0.0f, -VectorMath::transformToBodyFrame(body_wrench.force, orientation).z());
++            const Vector3r vel_body = VectorMath::transformToBodyFrame(linear_vel - wind_world, orientation);
++            const Vector3r force_body(-k * thrust * vel_body.x(), -k * thrust * vel_body.y(), 0);
++            wrench.force = VectorMath::transformToWorldFrame(force_body, orientation);
++            return wrench;
++        }
++
+         static Wrench getDragWrench(const PhysicsBody& body,
+                                     const Quaternionr& orientation,
+                                     const Vector3r& linear_vel,
+@@ -368,7 +386,7 @@
+                 Wrench ext_force_wrench = Wrench::zero();
+                 ext_force_wrench.force = ext_force;
+ 
+-                next_wrench = body_wrench + drag_wrench + ext_force_wrench;
++                next_wrench = body_wrench + drag_wrench + ext_force_wrench + getRotorDragWrench(body, current.pose.orientation, body_wrench, avg_linear, wind);
+ 
+                 //Utils::log(Utils::stringf("B-WRN %s: ", VectorMath::toString(body_wrench.force).c_str()));
+                 //Utils::log(Utils::stringf("D-WRN %s: ", VectorMath::toString(drag_wrench.force).c_str()));
+--- a/Source/AirLib/include/vehicles/multirotor/MultiRotorParams.hpp
++++ b/Source/AirLib/include/vehicles/multirotor/MultiRotorParams.hpp
+@@ -52,6 +52,9 @@
+             real_T angular_drag_coefficient = linear_drag_coefficient;
+             real_T restitution = 0.55f; // value of 1 would result in perfectly elastic collisions, 0 would be completely inelastic.
+             real_T friction = 0.5f;
++            // MultiUAV: сопротивление винтов F = -k * тяга * скорость поперёк оси винтов, k в с/м.
++            // Его нет в исходном AirSim (только сопротивление корпуса ~v^2), и дрон скользит, как по льду.
++            real_T rotor_drag_coefficient = 0;
+             RotorParams rotor_params;
+         };
+ 
+@@ -69,6 +72,7 @@
+             sensors_.clear();
+ 
+             setupParams();
++            params_.rotor_drag_coefficient = vehicle_setting->rotor_drag;
+ 
+             addSensorsFromSettings(vehicle_setting);
+         }
+--- a/Source/AirLib/include/vehicles/multirotor/MultiRotorPhysicsBody.hpp
++++ b/Source/AirLib/include/vehicles/multirotor/MultiRotorPhysicsBody.hpp
+@@ -136,6 +136,10 @@
+         {
+             return params_->getParams().friction;
+         }
++        virtual real_T getRotorDragCoefficient() const override
++        {
++            return params_->getParams().rotor_drag_coefficient;
++        }
+ 
+         RotorActuator::Output getRotorOutput(uint rotor_index) const
+         {
