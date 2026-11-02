@@ -7,6 +7,8 @@
 name: line_blocks
 drones: 7
 rate_hz: 10
+rotor_drag: 0.035      # сопротивление винтов (патч 04 плагина): без него дроны в Unreal «скользят», как по льду;
+                       # обычный плагин без патча этот ключ просто игнорирует
 duration_s: 200
 
 start: {north: 0, east: 0, altitude: 30, heading_deg: 0, spacing: 6}

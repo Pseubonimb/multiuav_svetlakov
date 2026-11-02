@@ -6,6 +6,8 @@
 name: line_blocks_city
 drones: 7
 rate_hz: 10
+rotor_drag: 0.035      # сопротивление винтов (патч 04 плагина): без него дроны в Unreal «скользят», как по льду;
+                       # обычный плагин без патча этот ключ просто игнорирует
 duration_s: 200
 
 start: {north: 0, east: 0, altitude: 30, heading_deg: 0, spacing: 6}
@@ -45,11 +47,11 @@ perception:
 
 world:
   buildings:
-    - {north: [-80, 200], east: [-60, -5], height: 60}
-    - {north: [-80, 55], east: [5, 160], height: 60}
-    - {north: [65, 135], east: [-5, 75], height: 60}
-    - {north: [145, 200], east: [-5, 160], height: 60}
-    - {north: [55, 145], east: [85, 160], height: 60}
-    - {north: [135, 145], east: [-5, 10], height: 60}
+    - {north: [-80, 200], east: [-60, -5], height: 35}
+    - {north: [-80, 55], east: [5, 160], height: 35}
+    - {north: [65, 135], east: [-5, 75], height: 35}
+    - {north: [145, 200], east: [-5, 160], height: 35}
+    - {north: [55, 145], east: [85, 160], height: 35}
+    - {north: [135, 145], east: [-5, 10], height: 35}
 
 finish: {north: [135, 145], east: [10, 75]}

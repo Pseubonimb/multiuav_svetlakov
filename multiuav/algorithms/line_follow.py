@@ -460,15 +460,21 @@ class LineFollow(FollowerAlgorithm):
         и одометрия, считающая по часам, завышает пройденный путь."""
         if not hasattr(self, "_ck"):
             self._ck = [me.position[:2].copy(), 0.0, 0.0, t]
+            self._ck_wall, self._ck_n = time.monotonic(), 0
             return
+        self._ck_n += 1
         self._ck[1] += float(np.linalg.norm(me.position[:2] - self._ck[0]))
         self._ck[2] += float(np.linalg.norm(me.velocity[:2])) * dt
         self._ck[0] = me.position[:2].copy()
         if t - self._ck[3] >= 10.0:
+            wall = time.monotonic()
+            hz = self._ck_n / max(wall - self._ck_wall, 1e-6)
             if self._ck[2] > 5.0:
                 print(f"[line_follow] t={t:6.1f} время симулятора идёт со скоростью "
-                      f"{self._ck[1] / self._ck[2]:.2f} от времени алгоритма", flush=True)
+                      f"{self._ck[1] / self._ck[2]:.2f} от времени алгоритма; "
+                      f"цикл управления {hz:.1f} Гц", flush=True)
             self._ck[1:] = [0.0, 0.0, t]
+            self._ck_wall, self._ck_n = wall, 0
 
     def _debug(self, t: float, text: str) -> None:
         """Сообщения для разбора полёта (параметр debug: true): что ведомый «думал»."""
