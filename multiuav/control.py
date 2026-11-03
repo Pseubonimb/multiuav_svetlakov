@@ -27,6 +27,9 @@ class ControlLimits:
     max_climb: float = 3.0  # вертикальная скорость, м/с
     max_rate: float = math.radians(200)  # Acro: угловая скорость крена/тангажа при полном стике, рад/с
     hover_throttle: float = 0.5  # Acro: доля тяги, при которой дрон висит (для упрощённого симулятора)
+    # Acro: холостой ход — тяга при газе в нуле. Как motor idle в Betaflight (dshot_idle_value,
+    # по умолчанию 5,5 %): взведённые моторы не останавливаются. 0 — моторы стоят.
+    idle_throttle: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -63,7 +66,7 @@ def rc_to_acro(rc: RcOverride, limits: ControlLimits) -> AcroSetpoint:
         roll_rate=roll * limits.max_rate,
         pitch_rate=pitch * limits.max_rate,
         yaw_rate=yaw * limits.max_rate,
-        throttle=(throttle + 1.0) / 2.0,
+        throttle=limits.idle_throttle + (1.0 - limits.idle_throttle) * (throttle + 1.0) / 2.0,
     )
 
 

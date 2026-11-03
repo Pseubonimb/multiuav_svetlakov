@@ -13,7 +13,7 @@ start:
   north: 0
   east: 0
   altitude: 0
-  heading_deg: 90     # как PlayerStart карты: нос на восток
+  heading_deg: 0      # нос на север, по ходу трассы (PlayerStart карты смотрит на восток — неверно)
 
 perception:
   lidar_range: 0      # лидар не нужен: ведомых нет
@@ -26,5 +26,10 @@ leader:
     deadzone: 0.0     # мёртвую зону задаёт пульт (EdgeTX), тремор не срезаем
     arm_low_throttle: true  # моторы молчат, пока газ хоть раз не опущен в ноль
 
+limits:
+  idle_throttle: 0.055  # холостой ход 5,5 % при газе в нуле, как motor idle в Betaflight
+
 stop_on_collision: false  # задел стену — летим дальше, касание в журнале
+view_mode: Fpv  # сразу вид из дрона (как клавиша F)
 show_rc: false
+collision_alarms: false  # никаких надписей в окне игры: касания — только в журнале

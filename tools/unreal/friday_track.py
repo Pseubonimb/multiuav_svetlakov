@@ -5,7 +5,12 @@
   UnrealEditor-Cmd ~/Desktop/New_Karta_Vitali/Blocks.uproject -run=pythonscript \
       -script="tools/unreal/friday_track.py --color '#969696'" -nullrhi -unattended
 
-Что делает (повторный запуск безопасен — старые ворота удаляются по тегу):
+Ворота и зоны можно двигать в редакторе: точка MU_GateNN (папка MultiUAV/Gates) —
+вместе с рамкой, коробки TriggerBox… — двигать и растягивать; затем выгрузить:
+  в редакторе, Output Log → Cmd:  py "<путь>/tools/unreal/friday_track.py" --export-only
+  или с закрытым редактором:       python -m multiuav track export
+
+Что делает (повторный запуск без --export-only ставит ворота заново на места по умолчанию):
   1. на выходе из каждой зоны затемнения (TriggerBox) ставит ворота-«окошко»:
      рамку из 4 брусьев с яркой точкой в центре (точка без столкновений);
   2. затемнение: материал M_MultiUAV_Occlusion (постобработка после тонмаппинга: цвет
@@ -32,15 +37,17 @@ import unreal
 MAP = "/Game/FlyingCPP/Maps/FlyingExampleMap"
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-# Зоны по ходу трассы (старт смотрит на восток, круг по часовой стрелке на карте сверху)
-# и направление полёта через зону: (dX, dY) в осях Unreal.
+# Зоны по ходу трассы и направление полёта через зону (dX, dY) в осях Unreal. От старта
+# летят на север по левому коридору (PlayerStart Виталия смотрит на восток — неверно;
+# проверено полётом 04.11: зоны сработали в порядке 5, 3, 4, 2).
 ZONES = [
-    ("TriggerBox_1", (0, 1)),    # нижний коридор, на восток
-    ("TriggerBox_0", (1, 0)),    # правый коридор, на север
-    ("TriggerBox_3", (0, -1)),   # верхний коридор, на запад
-    ("TriggerBox_2", (0, -1)),
-    ("TriggerBox_4", (0, -1)),
+    ("TriggerBox_4", (0, 1)),    # TriggerBox5, верхний коридор, на восток
+    ("TriggerBox_2", (0, 1)),    # TriggerBox3
+    ("TriggerBox_3", (0, 1)),    # TriggerBox4
+    ("TriggerBox_0", (-1, 0)),   # TriggerBox2, правый коридор, на юг
+    ("TriggerBox_1", (0, -1)),   # TriggerBox, нижний коридор, на запад
 ]
+START_HEADING_DEG = 0.0  # нос на старте — на север
 GATE_AFTER_CM = 150      # ворота на столько дальше выхода из зоны
 GATE_HEIGHT_CM = 500     # центр проёма над полом (как центр зон Виталия)
 OPENING_CM = 400         # проём ворот, квадрат
@@ -237,6 +244,8 @@ def spawn_box(mesh, label, loc, rot, size_cm, mat, collide=True):
 
 
 def place_gate(index, center, yaw_deg, frame_mat, dot_mat):
+    """Ворота — одна группа: точка MU_GateNN (её и двигать/поворачивать в редакторе),
+    к ней привязаны 4 бруса рамки MU_GateNN_L/R/T/B."""
     cube = unreal.load_asset("/Engine/BasicShapes/Cube.Cube")
     sphere = unreal.load_asset("/Engine/BasicShapes/Sphere.Sphere")
     rot = unreal.Rotator(roll=0.0, pitch=0.0, yaw=yaw_deg)
@@ -244,17 +253,21 @@ def place_gate(index, center, yaw_deg, frame_mat, dot_mat):
     right = (-fwd[1], fwd[0])
     half = OPENING_CM / 2 + BAR_CM / 2
     outer = OPENING_CM + 2 * BAR_CM
+    dot = spawn_box(sphere, f"MU_Gate{index:02d}", unreal.Vector(*center), rot, (DOT_CM,) * 3,
+                    dot_mat, collide=False)
+    dot.root_component.set_mobility(unreal.ComponentMobility.STATIC)
     parts = [  # (смещение вправо, вверх), размер (вдоль, поперёк, вверх)
         ("L", (-half, 0), (BAR_CM, BAR_CM, outer)),
         ("R", (half, 0), (BAR_CM, BAR_CM, outer)),
         ("T", (0, half), (BAR_CM, outer, BAR_CM)),
         ("B", (0, -half), (BAR_CM, outer, BAR_CM)),
     ]
+    keep = unreal.AttachmentRule.KEEP_WORLD
     for name, (r, u), size in parts:
         loc = unreal.Vector(center[0] + right[0] * r, center[1] + right[1] * r, center[2] + u)
-        spawn_box(cube, f"MU_Gate{index:02d}_{name}", loc, rot, size, frame_mat)
-    spawn_box(sphere, f"MU_Gate{index:02d}_Dot", unreal.Vector(*center), rot, (DOT_CM,) * 3,
-              dot_mat, collide=False)
+        bar = spawn_box(cube, f"MU_Gate{index:02d}_{name}", loc, rot, size, frame_mat)
+        bar.attach_to_actor(dot, "", keep, keep, keep, False)
+    return dot
 
 
 def main(argv):
@@ -265,10 +278,15 @@ def main(argv):
     p.add_argument("--image", default="", help="картинка вместо цвета (png/jpg), растянута на экран")
     p.add_argument("--occlusion-only", action="store_true",
                    help="только цвет/картинку затемнения (для меню): ворота и объём не трогать")
+    p.add_argument("--export-only", action="store_true",
+                   help="ничего не создавать: выгрузить ворота MU_GateNN и зоны там, где они "
+                        "сейчас стоят (после того как их передвинули в редакторе)")
     p.add_argument("--out", default=os.path.join(REPO, "maps", "FlyingExampleMap.json"))
     args = p.parse_args(argv)
 
-    les.load_level(MAP)
+    world = unreal.get_editor_subsystem(unreal.UnrealEditorSubsystem).get_editor_world()
+    if not world or world.get_path_name().split(".")[0] != MAP:
+        les.load_level(MAP)  # в редакторе с уже открытой картой — берём её как есть
     start = next(a for a in actors() if isinstance(a, unreal.PlayerStart))
     s = start.get_actor_location()
     capsule = start.get_component_by_class(unreal.CapsuleComponent)
@@ -283,8 +301,15 @@ def main(argv):
     color = args.color.lstrip("#")
     color_srgb = [int(color[i:i + 2], 16) / 255 for i in (0, 2, 4)]
     image = os.path.abspath(os.path.expanduser(args.image)) if args.image else ""
-    mi = occlusion_material(color_srgb, image, rebuild=not args.occlusion_only)
-    occlusion = {"color": "#" + color.lower(), "image": image or None}
+    old = {}
+    if os.path.exists(args.out):
+        old = json.loads(open(args.out, encoding="utf-8").read())
+    if args.export_only:
+        occlusion = {k: v for k, v in old.get("occlusion", {}).items() if k in ("color", "image")}
+        mi = None
+    else:
+        mi = occlusion_material(color_srgb, image, rebuild=not args.occlusion_only)
+        occlusion = {"color": "#" + color.lower(), "image": image or None}
     if args.occlusion_only:
         # только поправить цвет в уже выгруженном файле
         data = json.loads(open(args.out, encoding="utf-8").read())
@@ -293,12 +318,16 @@ def main(argv):
             json.dump(data, f, ensure_ascii=False, indent=2)
         log(f"затемнение: {occlusion}")
         return
-    for a in actors():
-        if unreal.Name(TAG) in a.tags:
-            a.destroy_actor()
-    frame_mat = material("M_MultiUAV_GateFrame", (1.0, 0.35, 0.0), 0.4)
-    dot_mat = material("M_MultiUAV_GateDot", (1.0, 0.0, 0.0), 8.0)
-    vol = occlusion_volume(mi)
+    if args.export_only:
+        vol = next(a for a in actors() if a.get_actor_label() == OCCLUSION_LABEL)
+        dots = {a.get_actor_label(): a for a in actors() if unreal.Name(TAG) in a.tags}
+    else:
+        for a in actors():
+            if unreal.Name(TAG) in a.tags:
+                a.destroy_actor()
+        frame_mat = material("M_MultiUAV_GateFrame", (1.0, 0.35, 0.0), 0.4)
+        dot_mat = material("M_MultiUAV_GateDot", (1.0, 0.0, 0.0), 8.0)
+        vol = occlusion_volume(mi)
 
     def ned(x, y, z):
         return {"north": round((x - s.x) / 100, 3), "east": round((y - s.y) / 100, 3),
@@ -313,18 +342,28 @@ def main(argv):
                           "half_size": {"north": round(e.x / 100, 3), "east": round(e.y / 100, 3),
                                         "up": round(e.z / 100, 3)},
                           "heading_deg": round(math.degrees(math.atan2(dy, dx)) % 360, 1)})
-        exit_point = (o.x + dx * (e.x + GATE_AFTER_CM), o.y + dy * (e.y + GATE_AFTER_CM))
-        (gx, gy), width = corridor_center(exit_point, (dx, dy), walls)
-        center = (gx, gy, floor + GATE_HEIGHT_CM)
-        yaw = math.degrees(math.atan2(dy, dx))
-        place_gate(i + 1, center, yaw, frame_mat, dot_mat)
+        if args.export_only:
+            dot = dots.get(f"MU_Gate{i + 1:02d}")
+            if dot is None:
+                raise RuntimeError(f"нет ворот MU_Gate{i + 1:02d} — запустите скрипт без --export-only")
+            loc = dot.get_actor_location()
+            center = (loc.x, loc.y, loc.z)
+            yaw = dot.get_actor_rotation().yaw
+            width = None
+        else:
+            exit_point = (o.x + dx * (e.x + GATE_AFTER_CM), o.y + dy * (e.y + GATE_AFTER_CM))
+            (gx, gy), width = corridor_center(exit_point, (dx, dy), walls)
+            center = (gx, gy, floor + GATE_HEIGHT_CM)
+            yaw = math.degrees(math.atan2(dy, dx))
+            place_gate(i + 1, center, yaw, frame_mat, dot_mat)
         out_gates.append({"index": i, "name": f"MU_Gate{i + 1:02d}", "after_zone": i,
                           "center": ned(*center), "heading_deg": round(yaw % 360, 1),
                           "width_m": OPENING_CM / 100, "height_m": OPENING_CM / 100,
                           "corridor_m": None if width is None else round(width / 100, 2)})
         log(f"ворота {i + 1}: за {z.get_actor_label()}, {out_gates[-1]['center']}, курс {yaw:.0f}")
 
-    les.save_current_level()
+    if not args.export_only:
+        les.save_current_level()
     walls_ne = []
     for o, e in walls:
         n0, e0 = (o.x - e.x - s.x) / 100, (o.y - e.y - s.y) / 100
@@ -336,6 +375,7 @@ def main(argv):
                  "heading_deg — курс полёта через ворота/зону, 0 — север, по часовой",
         "player_start_ue_cm": [round(s.x, 1), round(s.y, 1), round(s.z, 1)],
         "player_start_yaw_deg": round(start.get_actor_rotation().yaw, 1),
+        "start_heading_deg": START_HEADING_DEG,
         "floor_alt": round((floor - s.z) / 100, 3),
         "occlusion": {**occlusion, "volume": vol.get_name(), "label": OCCLUSION_LABEL,
                       "size_m": OCCLUSION_SIZE_CM / 100,
@@ -349,6 +389,7 @@ def main(argv):
     with open(args.out, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
     log(f"записано {args.out}")
+    print(f"MULTIUAV: записано {args.out}: ворот {len(out_gates)}, зон {len(out_zones)}")
 
 
 argv = sys.argv[1:]

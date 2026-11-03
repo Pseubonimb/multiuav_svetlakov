@@ -106,6 +106,10 @@ class Scenario:
     # True — менеджер сам поднимает дронов на altitude (takeoffAsync + moveToZAsync).
     # False — как в FPV: дрон стоит на земле, управление сразу у пульта, взлетает пилот.
     takeoff: bool = True
+    # Надписи о столкновениях в окне Unreal (красная строка и «COLLISION #N» над дроном).
+    collision_alarms: bool = True
+    # Вид в окне Unreal при старте: FlyWithMe (камера сзади), Fpv (из дрона), Manual …
+    view_mode: str = "FlyWithMe"
 
     def start_positions(self) -> list[np.ndarray]:
         """Стартовые точки NED: ведущий впереди, остальные колонной позади него."""
@@ -157,6 +161,7 @@ class Scenario:
                 max_climb=float(limits.get("max_climb", 3.0)),
                 max_rate=math.radians(float(limits.get("max_rate_deg", 200.0))),
                 hover_throttle=float(limits.get("hover_throttle", 0.5)),
+                idle_throttle=float(limits.get("idle_throttle", 0.0)),
             ),
             show_rc=bool(data.get("show_rc", False)),
             stop_on_collision=bool(data.get("stop_on_collision", True)),
@@ -166,4 +171,6 @@ class Scenario:
             rate_gains=_rate_gains(data.get("rate_gains")),
             rotor_drag=float(data.get("rotor_drag", 0.0)),
             takeoff=bool(data.get("takeoff", True)),
+            collision_alarms=bool(data.get("collision_alarms", True)),
+            view_mode=str(data.get("view_mode", "FlyWithMe")),
         )

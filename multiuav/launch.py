@@ -60,7 +60,7 @@ def unreal_command(cfg: dict) -> list[str]:
     # -OcclusionMs не передаём: затемнением управляет MultiUAV (occlusion.py), триггеры
     # Виталия в карте выключены.
     cmd = [engine, project, cfg["map"], "-game", "-nosplash",
-           f"-ExecCmds=scalability {cfg.get('quality', 1)}"]
+           f"-ExecCmds=scalability {cfg.get('quality', 1)}, DisableAllScreenMessages"]
     if cfg.get("fullscreen", True):
         cmd += ["-fullscreen"]
     else:
@@ -331,7 +331,8 @@ def _start_sticks(cfg: dict, out: Path) -> subprocess.Popen:
 
 
 def _goodbye(backend) -> None:
-    """Надпись «КОНЕЦ ЭКСПЕРИМЕНТА» перед дроном на 3 с (если игра ещё жива)."""
+    """Надпись END OF EXPERIMENT перед дроном на 3 с (если игра ещё жива).
+    Латиницей: отладочный шрифт Unreal кириллицу не рисует."""
     client = getattr(backend, "client", None)
     if client is None:
         return
@@ -347,7 +348,7 @@ def _goodbye(backend) -> None:
 
         p = k.position
         ahead = airsim.Vector3r(p.x_val + 4 * math.cos(yaw), p.y_val + 4 * math.sin(yaw), p.z_val)
-        client.simPlotStrings(["КОНЕЦ ЭКСПЕРИМЕНТА"], [ahead], 2.0, [1.0, 1.0, 1.0, 1.0], 3.0)
+        client.simPlotStrings(["END OF EXPERIMENT"], [ahead], 2.0, [1.0, 1.0, 1.0, 1.0], 3.0)
         client.hoverAsync(vehicle_name="Drone0")
         time.sleep(3.0)
     except Exception:

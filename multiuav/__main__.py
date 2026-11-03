@@ -9,6 +9,7 @@
   experiment  меню эксперимента: участник, затемнения, Старт/Стоп, обработка
   launch    одна попытка целиком: игра, запись пульта, полёт (то, что делает «Старт»)
   analyze   обработать папку попытки: ворота, нажатия SE, затемнения
+  track     ворота и зоны карты: edit (в редакторе), export (выгрузить), reset (заново)
 """
 
 from __future__ import annotations
@@ -178,6 +179,52 @@ def cmd_analyze(args) -> None:
     print(json.dumps(summary, ensure_ascii=False, indent=2))
 
 
+def cmd_track(args) -> None:
+    """Ворота и зоны карты: открыть в редакторе, выгрузить после правки, поставить заново."""
+    import os
+    import subprocess
+
+    from .experiment import load_config
+    from .launch import _game_env, port_open
+
+    cfg = load_config(args.config)
+    engine = Path(os.path.expanduser(cfg["engine"]))
+    project = os.path.expanduser(cfg["project"])
+    script = Path(__file__).resolve().parent.parent / "tools" / "unreal" / "friday_track.py"
+    if args.action == "edit":
+        print("Открываю редактор на карте. Ворота — точки MU_Gate01…05 в папке MultiUAV/Gates "
+              "(двигать W, поворачивать E — рамка идёт за точкой); зоны — TriggerBox… "
+              "(двигать W, растягивать R). Потом Ctrl+S, закрыть редактор и: "
+              "python -m multiuav track export")
+        subprocess.Popen([str(engine), project, cfg["map"]], env=_game_env(), start_new_session=True)
+        return
+    if port_open():
+        raise SystemExit("Открыт редактор или игра — сохраните карту (Ctrl+S), закройте их и повторите")
+    extra = "--export-only" if args.action == "export" else f"--color {cfg.get('occlusion_color', '#969696')}"
+    print("Unreal без окна, ~20–40 с…", flush=True)
+    log = Path("runs") / f"track_{args.action}.log"
+    log.parent.mkdir(exist_ok=True)
+    with open(log, "w", encoding="utf-8") as f:
+        code = subprocess.call([str(engine.with_name("UnrealEditor-Cmd")), project, "-run=pythonscript",
+                                f"-script={script} {extra}", "-nullrhi", "-unattended", "-nosplash",
+                                "-nop4"], stdout=f, stderr=subprocess.STDOUT)
+    errors = [ln for ln in log.read_text(encoding="utf-8", errors="replace").splitlines()
+              if "LogPython: Error" in ln]
+    if code != 0 or errors:
+        print("\n".join(dict.fromkeys(errors)))
+        raise SystemExit(f"Не получилось (код {code}), лог: {log}")
+    data = json.loads(Path(cfg["track"]).read_text(encoding="utf-8"))
+    print(f"Записано {cfg['track']}:")
+    for g in data["gates"]:
+        c = g["center"]
+        print(f"  {g['name']}: север {c['north']:.1f}, восток {c['east']:.1f}, высота {c['alt']:.1f} м, "
+              f"курс {g['heading_deg']:.0f}°")
+    for z in data["zones"]:
+        c, h = z["center"], z["half_size"]
+        print(f"  зона {z['index'] + 1} ({z['label']}): центр {c['north']:.1f}, {c['east']:.1f}; "
+              f"размер {2 * h['north']:.1f} × {2 * h['east']:.1f} × {2 * h['up']:.1f} м")
+
+
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(prog="multiuav", description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -281,6 +328,13 @@ def main(argv: list[str] | None = None) -> None:
     analyze.add_argument("--window", type=float, default=2.0,
                          help="нажатие относится к воротам, если до пролёта не дальше, с")
     analyze.set_defaults(func=cmd_analyze)
+
+    track = sub.add_parser("track", help="ворота и зоны карты эксперимента")
+    track.add_argument("action", choices=["edit", "export", "reset"],
+                       help="edit — открыть карту в редакторе, export — выгрузить ворота и зоны "
+                            "в maps/…json после правки, reset — поставить ворота заново по умолчанию")
+    track.add_argument("--config", default="experiments/friday.json")
+    track.set_defaults(func=cmd_track)
 
     args = parser.parse_args(argv)
     args.func(args)

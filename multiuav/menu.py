@@ -379,4 +379,7 @@ def run_menu(config: Path) -> None:
     os.chdir(REPO)
     root = tk.Tk()
     Menu(root, config)
+    root.lift()  # поверх остальных окон при запуске, дальше — как обычное окно
+    root.attributes("-topmost", True)
+    root.after(800, lambda: root.attributes("-topmost", False))
     root.mainloop()

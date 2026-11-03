@@ -106,8 +106,8 @@ class Track:
         zones = [Zone(z["index"], z["name"], z.get("label", z["name"]), _vec(z["center"]),
                       np.array([z["half_size"]["north"], z["half_size"]["east"], z["half_size"]["up"]]))
                  for z in data["zones"]]
-        return cls(data.get("map", ""), gates, zones,
-                   math.radians(float(data.get("player_start_yaw_deg", 0.0))))
+        heading = data.get("start_heading_deg", data.get("player_start_yaw_deg", 0.0))
+        return cls(data.get("map", ""), gates, zones, math.radians(float(heading)))
 
     def gate_passed(self, p0: np.ndarray, p1: np.ndarray) -> list[tuple[Gate, float]]:
         """Ворота, через проём которых прошёл отрезок p0→p1, и доля отрезка."""

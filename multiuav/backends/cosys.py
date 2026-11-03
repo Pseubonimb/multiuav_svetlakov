@@ -107,6 +107,7 @@ class CosysBackend(SimBackend):
 
         self.limits = scenario.limits
         self.show_rc = scenario.show_rc
+        self.collision_alarms = scenario.collision_alarms
         self._last_rc_display = -math.inf
         self.client = airsim.MultirotorClient(ip=self.host)
         self.client.confirmConnection()
@@ -129,9 +130,14 @@ class CosysBackend(SimBackend):
         # Высота пола под каждым дроном (z вниз, от его точки старта).
         self._ground_z = [self.client.simGetGroundTruthKinematics(n).position.z_val
                           for n in self.names]
-        for name in self.names:
+        # Без автовзлёта взводим дрон вместе с первой командой (send): пока команд нет,
+        # взведённый SimpleFlight сам даёт тягу — дрон «подпрыгивал» на 10–30 м.
+        self._armed = [False for _ in self.names]
+        for i, name in enumerate(self.names):
             self.client.enableApiControl(True, name)
-            self.client.armDisarm(True, name)
+            if scenario.takeoff:
+                self.client.armDisarm(True, name)
+                self._armed[i] = True
             if scenario.rate_gains:
                 g = airsim.PIDGains(*scenario.rate_gains)
                 self.client.setAngleRateControllerGains(
@@ -189,7 +195,7 @@ class CosysBackend(SimBackend):
         """Показать столкновение в окне Unreal: красная строка в сообщениях AirSim
         (та же строка для дрона обновляется) и надпись в мире над самим дроном."""
         now = time.monotonic()
-        if now - self._last_alarm[i] < ALARM_PERIOD:
+        if not self.collision_alarms or now - self._last_alarm[i] < ALARM_PERIOD:
             return  # одно касание стены даёт десятки событий подряд
         self._last_alarm[i] = now
         try:
@@ -222,6 +228,9 @@ class CosysBackend(SimBackend):
         dt = min(now - self._last_send[drone_id], 0.5)
         self._last_send[drone_id] = now
         name = self.names[drone_id]
+        if not self._armed[drone_id]:
+            self.client.armDisarm(True, name)
+            self._armed[drone_id] = True
         if rc.mode == ACRO:
             # Acro: SimpleFlight держит только угловые скорости, тягу задаёт газ напрямую.
             # Оси те же, что у углов ниже, поэтому и знак рысканья тот же.

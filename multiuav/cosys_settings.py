@@ -59,6 +59,9 @@ def build_settings(scenario: Scenario, with_subwindows: bool = False,
             "Y": round(float(p[1]), 2),
             "Z": 0,  # на земле под точкой старта; высоту набирает менеджер
             "Yaw": round(math.degrees(scenario.heading), 1),
+            # Плагин не читает пульт сам: иначе до enableApiControl SimpleFlight принимает
+            # наш джойстик за свой RC и даёт тягу — дрон подпрыгивал на старте на 10–30 м.
+            "RC": {"RemoteControlID": -1},
         }
         if scenario.perception.lidar_range > 0:
             vehicles[vehicle_name(i)]["Sensors"] = {LIDAR_NAME: lidar_settings(scenario)}
@@ -73,10 +76,12 @@ def build_settings(scenario: Scenario, with_subwindows: bool = False,
         "SettingsVersion": 2.0,
         "SimMode": "Multirotor",
         "ClockSpeed": 1,
-        "ViewMode": "FlyWithMe",
+        "ViewMode": scenario.view_mode,
         # Отладочные строки AirSim в углу экрана (и наши simPrintLogMessage) скрыты;
         # F2 в окне игры показывает/прячет их (своя доработка плагина, патч 05).
         "LogMessagesVisible": messages,
+        # Кнопка REC (запись кадров AirSim) в правом нижнем углу не нужна.
+        "RecordUIVisible": False,
         "Vehicles": vehicles,
     }
     if with_subwindows:
