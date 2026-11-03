@@ -208,9 +208,10 @@ def cmd_track(args) -> None:
         code = subprocess.call([str(engine.with_name("UnrealEditor-Cmd")), project, "-run=pythonscript",
                                 f"-script={script} {extra}", "-nullrhi", "-unattended", "-nosplash",
                                 "-nop4"], stdout=f, stderr=subprocess.STDOUT)
-    errors = [ln for ln in log.read_text(encoding="utf-8", errors="replace").splitlines()
-              if "LogPython: Error" in ln]
-    if code != 0 or errors:
+    text = log.read_text(encoding="utf-8", errors="replace")
+    errors = [ln for ln in text.splitlines() if "LogPython: Error" in ln]
+    # Код 1 бывает и при успехе: Unreal ругается на старый Level Blueprint Виталия.
+    if errors or "Python script executed successfully" not in text:
         print("\n".join(dict.fromkeys(errors)))
         raise SystemExit(f"Не получилось (код {code}), лог: {log}")
     data = json.loads(Path(cfg["track"]).read_text(encoding="utf-8"))

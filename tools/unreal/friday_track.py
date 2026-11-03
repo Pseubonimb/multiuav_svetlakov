@@ -5,7 +5,7 @@
   UnrealEditor-Cmd ~/Desktop/New_Karta_Vitali/Blocks.uproject -run=pythonscript \
       -script="tools/unreal/friday_track.py --color '#969696'" -nullrhi -unattended
 
-Ворота и зоны можно двигать в редакторе: точка MU_GateNN (папка MultiUAV/Gates) —
+Ворота и зоны можно двигать в редакторе: точка MU_GateCW01… / MU_GateCCW01… (папка MultiUAV/Gates) —
 вместе с рамкой, коробки TriggerBox… — двигать и растягивать; затем выгрузить:
   в редакторе, Output Log → Cmd:  py "<путь>/tools/unreal/friday_track.py" --export-only
   или с закрытым редактором:       python -m multiuav track export
@@ -37,17 +37,17 @@ import unreal
 MAP = "/Game/FlyingCPP/Maps/FlyingExampleMap"
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-# Зоны по ходу трассы и направление полёта через зону (dX, dY) в осях Unreal. От старта
-# летят на север по левому коридору (PlayerStart Виталия смотрит на восток — неверно;
-# проверено полётом 04.11: зоны сработали в порядке 5, 3, 4, 2).
-ZONES = [
-    ("TriggerBox_4", (0, 1)),    # TriggerBox5, верхний коридор, на восток
-    ("TriggerBox_2", (0, 1)),    # TriggerBox3
-    ("TriggerBox_3", (0, 1)),    # TriggerBox4
-    ("TriggerBox_0", (-1, 0)),   # TriggerBox2, правый коридор, на юг
-    ("TriggerBox_1", (0, -1)),   # TriggerBox, нижний коридор, на запад
-]
-START_HEADING_DEG = 0.0  # нос на старте — на север
+# Осевая линия кольца (север, восток — м от PlayerStart) по часовой стрелке на карте сверху:
+# от старта на север по левому коридору, на восток по верхнему, на юг по правому, на запад
+# по нижнему, на север по среднему и на запад обратно к старту. Порядок зон и ворот — по
+# расстоянию вдоль этой линии. Против часовой — то же в обратную сторону.
+CENTERLINE = [(0, -15), (365, -15), (365, 555), (-545, 555), (-545, 200), (-15, 200),
+              (-15, -15), (0, -15)]
+DIRECTIONS = {
+    "cw": {"title": "по часовой: от старта на север", "start_heading_deg": 0.0},
+    "ccw": {"title": "против часовой: от старта на восток", "start_heading_deg": 90.0},
+}
+ZONE_WALL_OVERLAP_CM = 20  # зона заходит в стены, чтобы между ними не было щели
 GATE_AFTER_CM = 150      # ворота на столько дальше выхода из зоны
 GATE_HEIGHT_CM = 500     # центр проёма над полом (как центр зон Виталия)
 OPENING_CM = 400         # проём ворот, квадрат
@@ -226,10 +226,35 @@ def occlusion_volume(mi):
     return vol
 
 
+def fit_zone(zone, axis, walls):
+    """Растянуть коробку зоны поперёк коридора от стены до стены (и по центру коридора);
+    длину вдоль хода и высоту не трогать."""
+    o, e = zone.get_actor_bounds(False)
+    center, width = corridor_center((o.x, o.y), axis, walls)
+    if width is None:
+        log(f"ВНИМАНИЕ: у {zone.get_actor_label()} не нашёл стен по бокам — размер не менял")
+        return
+    box = zone.get_component_by_class(unreal.BoxComponent)
+    extent = box.get_editor_property("box_extent")
+    scale = zone.get_actor_scale3d()
+    half = width / 2 + ZONE_WALL_OVERLAP_CM
+    loc = zone.get_actor_location()
+    if axis[0] == 0:  # коридор вдоль Y (восток–запад): растягиваем по X
+        scale.x = half / extent.x
+        loc.x = center[0]
+    else:
+        scale.y = half / extent.y
+        loc.y = center[1]
+    zone.set_actor_scale3d(scale)
+    zone.set_actor_location(loc, False, True)
+    log(f"зона {zone.get_actor_label()}: поперёк {2 * half / 100:.1f} м")
+
+
 def spawn_box(mesh, label, loc, rot, size_cm, mat, collide=True):
     a = eas.spawn_actor_from_class(unreal.StaticMeshActor, loc, rot)
     if a is None:
         raise RuntimeError(f"Unreal не создал {label}")
+    a.root_component.set_mobility(unreal.ComponentMobility.MOVABLE)
     a.static_mesh_component.set_static_mesh(mesh)
     a.set_actor_label(label)
     a.set_actor_scale3d(unreal.Vector(*(s / 100.0 for s in size_cm)))
@@ -243,9 +268,10 @@ def spawn_box(mesh, label, loc, rot, size_cm, mat, collide=True):
     return a
 
 
-def place_gate(index, center, yaw_deg, frame_mat, dot_mat):
-    """Ворота — одна группа: точка MU_GateNN (её и двигать/поворачивать в редакторе),
-    к ней привязаны 4 бруса рамки MU_GateNN_L/R/T/B."""
+def place_gate(label, center, yaw_deg, frame_mat, dot_mat):
+    """Ворота — одна группа: точка label (MU_GateCW01; её и двигать/поворачивать в
+    редакторе), к ней привязаны 4 бруса рамки label_L/R/T/B. Всё подвижное (Movable):
+    ворота другого направления MultiUAV перед полётом уносит под карту."""
     cube = unreal.load_asset("/Engine/BasicShapes/Cube.Cube")
     sphere = unreal.load_asset("/Engine/BasicShapes/Sphere.Sphere")
     rot = unreal.Rotator(roll=0.0, pitch=0.0, yaw=yaw_deg)
@@ -253,9 +279,8 @@ def place_gate(index, center, yaw_deg, frame_mat, dot_mat):
     right = (-fwd[1], fwd[0])
     half = OPENING_CM / 2 + BAR_CM / 2
     outer = OPENING_CM + 2 * BAR_CM
-    dot = spawn_box(sphere, f"MU_Gate{index:02d}", unreal.Vector(*center), rot, (DOT_CM,) * 3,
-                    dot_mat, collide=False)
-    dot.root_component.set_mobility(unreal.ComponentMobility.STATIC)
+    dot = spawn_box(sphere, label, unreal.Vector(*center), rot, (DOT_CM,) * 3, dot_mat,
+                    collide=False)
     parts = [  # (смещение вправо, вверх), размер (вдоль, поперёк, вверх)
         ("L", (-half, 0), (BAR_CM, BAR_CM, outer)),
         ("R", (half, 0), (BAR_CM, BAR_CM, outer)),
@@ -265,7 +290,7 @@ def place_gate(index, center, yaw_deg, frame_mat, dot_mat):
     keep = unreal.AttachmentRule.KEEP_WORLD
     for name, (r, u), size in parts:
         loc = unreal.Vector(center[0] + right[0] * r, center[1] + right[1] * r, center[2] + u)
-        bar = spawn_box(cube, f"MU_Gate{index:02d}_{name}", loc, rot, size, frame_mat)
+        bar = spawn_box(cube, f"{label}_{name}", loc, rot, size, frame_mat)
         bar.attach_to_actor(dot, "", keep, keep, keep, False)
     return dot
 
@@ -320,7 +345,6 @@ def main(argv):
         return
     if args.export_only:
         vol = next(a for a in actors() if a.get_actor_label() == OCCLUSION_LABEL)
-        dots = {a.get_actor_label(): a for a in actors() if unreal.Name(TAG) in a.tags}
     else:
         for a in actors():
             if unreal.Name(TAG) in a.tags:
@@ -333,34 +357,64 @@ def main(argv):
         return {"north": round((x - s.x) / 100, 3), "east": round((y - s.y) / 100, 3),
                 "alt": round((z - s.z) / 100, 3)}
 
-    out_zones, out_gates = [], []
-    for i, (name, (dx, dy)) in enumerate(ZONES):
-        z = zones[name]
+    def progress(x, y):
+        """Где точка (см Unreal) на кольце по часовой: (м вдоль осевой, (dX, dY) хода там)."""
+        n, e = (x - s.x) / 100, (y - s.y) / 100
+        best, walked = None, 0.0
+        for (n0, e0), (n1, e1) in zip(CENTERLINE, CENTERLINE[1:]):
+            dn, de = n1 - n0, e1 - e0
+            length = math.hypot(dn, de)
+            a = max(0.0, min(1.0, ((n - n0) * dn + (e - e0) * de) / length ** 2))
+            dist = math.hypot(n - n0 - a * dn, e - e0 - a * de)
+            if best is None or dist < best[0]:
+                best = (dist, walked + a * length, (round(dn / length), round(de / length)))
+            walked += length
+        return best[1], best[2]
+
+    # Зоны — все TriggerBox на карте (и скопированные вручную), по ходу трассы по часовой.
+    boxes = []
+    for z in zones.values():
         o, e = z.get_actor_bounds(False)
-        out_zones.append({"index": i, "name": name, "label": z.get_actor_label(),
-                          "center": ned(o.x, o.y, o.z),
+        along, axis = progress(o.x, o.y)
+        if not args.export_only:
+            fit_zone(z, axis, walls)
+            o, e = z.get_actor_bounds(False)
+        boxes.append((along, z, o, e, axis))
+    boxes.sort(key=lambda b: b[0])
+    out_zones = []
+    for i, (along, z, o, e, axis) in enumerate(boxes):
+        out_zones.append({"index": i, "name": z.get_name(), "label": z.get_actor_label(),
+                          "center": ned(o.x, o.y, o.z), "along_m": round(along, 1),
                           "half_size": {"north": round(e.x / 100, 3), "east": round(e.y / 100, 3),
-                                        "up": round(e.z / 100, 3)},
-                          "heading_deg": round(math.degrees(math.atan2(dy, dx)) % 360, 1)})
-        if args.export_only:
-            dot = dots.get(f"MU_Gate{i + 1:02d}")
-            if dot is None:
-                raise RuntimeError(f"нет ворот MU_Gate{i + 1:02d} — запустите скрипт без --export-only")
-            loc = dot.get_actor_location()
-            center = (loc.x, loc.y, loc.z)
-            yaw = dot.get_actor_rotation().yaw
-            width = None
-        else:
-            exit_point = (o.x + dx * (e.x + GATE_AFTER_CM), o.y + dy * (e.y + GATE_AFTER_CM))
-            (gx, gy), width = corridor_center(exit_point, (dx, dy), walls)
-            center = (gx, gy, floor + GATE_HEIGHT_CM)
-            yaw = math.degrees(math.atan2(dy, dx))
-            place_gate(i + 1, center, yaw, frame_mat, dot_mat)
-        out_gates.append({"index": i, "name": f"MU_Gate{i + 1:02d}", "after_zone": i,
+                                        "up": round(e.z / 100, 3)}})
+
+    directions = {}
+    for key, info in DIRECTIONS.items():
+        sign = 1 if key == "cw" else -1
+        order = list(range(len(boxes))) if key == "cw" else list(reversed(range(len(boxes))))
+        prefix = f"MU_Gate{key.upper()}"
+        gates = []
+        for k, zi in enumerate(order):
+            _, z, o, e, axis = boxes[zi]
+            dx, dy = axis[0] * sign, axis[1] * sign
+            label = f"{prefix}{k + 1:02d}"
+            if args.export_only:
+                dot = next((a for a in actors() if a.get_actor_label() == label), None)
+                if dot is None:
+                    raise RuntimeError(f"нет ворот {label} — запустите python -m multiuav track reset")
+                loc = dot.get_actor_location()
+                center, yaw = (loc.x, loc.y, loc.z), dot.get_actor_rotation().yaw
+            else:
+                exit_point = (o.x + dx * (e.x + GATE_AFTER_CM), o.y + dy * (e.y + GATE_AFTER_CM))
+                (gx, gy), _ = corridor_center(exit_point, (dx, dy), walls)
+                center = (gx, gy, floor + GATE_HEIGHT_CM)
+                yaw = math.degrees(math.atan2(dy, dx))
+                dot = place_gate(label, center, yaw, frame_mat, dot_mat)
+            gates.append({"index": k, "name": label, "actor": dot.get_name(), "after_zone": k,
                           "center": ned(*center), "heading_deg": round(yaw % 360, 1),
-                          "width_m": OPENING_CM / 100, "height_m": OPENING_CM / 100,
-                          "corridor_m": None if width is None else round(width / 100, 2)})
-        log(f"ворота {i + 1}: за {z.get_actor_label()}, {out_gates[-1]['center']}, курс {yaw:.0f}")
+                          "width_m": OPENING_CM / 100, "height_m": OPENING_CM / 100})
+            log(f"{key} ворота {k + 1}: за {z.get_actor_label()}, {gates[-1]['center']}, курс {yaw:.0f}")
+        directions[key] = {**info, "zones": order, "gates": gates}
 
     if not args.export_only:
         les.save_current_level()
@@ -372,24 +426,24 @@ def main(argv):
     data = {
         "map": MAP,
         "frame": "NED: north, east — м от PlayerStart; alt — м вверх от PlayerStart; "
-                 "heading_deg — курс полёта через ворота/зону, 0 — север, по часовой",
+                 "heading_deg — курс полёта через ворота, 0 — север, по часовой",
         "player_start_ue_cm": [round(s.x, 1), round(s.y, 1), round(s.z, 1)],
         "player_start_yaw_deg": round(start.get_actor_rotation().yaw, 1),
-        "start_heading_deg": START_HEADING_DEG,
         "floor_alt": round((floor - s.z) / 100, 3),
         "occlusion": {**occlusion, "volume": vol.get_name(), "label": OCCLUSION_LABEL,
                       "size_m": OCCLUSION_SIZE_CM / 100,
                       "park_ned": [OCCLUSION_PARK_CM[0] / 100, OCCLUSION_PARK_CM[1] / 100,
                                    -OCCLUSION_PARK_CM[2] / 100]},
+        "centerline": CENTERLINE,
         "walls": walls_ne,
-        "gates": out_gates,
-        "zones": out_zones,
+        "zones": out_zones,  # по ходу по часовой; для направления — directions[…]["zones"]
+        "directions": directions,
     }
     os.makedirs(os.path.dirname(args.out), exist_ok=True)
     with open(args.out, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
     log(f"записано {args.out}")
-    print(f"MULTIUAV: записано {args.out}: ворот {len(out_gates)}, зон {len(out_zones)}")
+    print(f"MULTIUAV: записано {args.out}: зон {len(out_zones)}")
 
 
 argv = sys.argv[1:]

@@ -130,6 +130,11 @@ class Menu:
                                                 ("Длительность, мин", self.minutes, 8))):
             ttk.Label(form, text=text).grid(row=r, column=0, sticky="w", **pad)
             ttk.Entry(form, textvariable=var, width=width).grid(row=r, column=1, sticky="w", **pad)
+        self.directions = self._directions()
+        self.direction = tk.StringVar(value=self.directions.get(self.cfg.get("direction", "cw"), ""))
+        ttk.Label(form, text="Направление по трассе").grid(row=6, column=0, sticky="w", **pad)
+        ttk.Combobox(form, textvariable=self.direction, values=list(self.directions.values()),
+                     state="readonly", width=34).grid(row=6, column=1, sticky="w", **pad)
         self.color = self.cfg.get("occlusion_color", "#969696")
         self.image = tk.StringVar(value=self.cfg.get("occlusion_image", ""))
         ttk.Label(form, text="Цвет затемнения").grid(row=3, column=0, sticky="w", **pad)
@@ -259,6 +264,16 @@ class Menu:
 
     # ---------------------------------------------------------------- кнопки
 
+    def _directions(self) -> dict[str, str]:
+        """cw/ccw → подпись из файла трассы (и сколько там зон)."""
+        try:
+            data = json.loads((REPO / self.cfg["track"]).read_text(encoding="utf-8"))
+        except (OSError, KeyError, ValueError):
+            return {"cw": "по часовой", "ccw": "против часовой"}
+        zones = len(data.get("zones", []))
+        return {k: f"{d.get('title', k)} (зон: {zones})"
+                for k, d in data.get("directions", {"cw": {}}).items()}
+
     def pick_color(self) -> None:
         _, color = colorchooser.askcolor(color=self.color, title="Цвет затемнения")
         if color:
@@ -297,6 +312,8 @@ class Menu:
         self.attempt = new_attempt_dir(self.code.get(), REPO / "runs")
         cfg = {**self.cfg, "participant": self.code.get().strip(), "occlusion_ms": occlusion,
                "occlusion_color": self.color, "occlusion_image": image,
+               "direction": next((k for k, v in self.directions.items() if v == self.direction.get()),
+                                 "cw"),
                "duration_s": round(minutes * 60), "out": str(self.attempt)}
         write_json(self.attempt / "experiment.json", cfg)
         self.say(f"Старт: {self.attempt.relative_to(REPO)}")

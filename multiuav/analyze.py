@@ -284,7 +284,7 @@ def analyze(folder: Path, track_path: Path | None = None, window_s: float = 2.0)
     exp_path = folder / "experiment.json"
     exp = json.loads(exp_path.read_text(encoding="utf-8")) if exp_path.exists() else {}
     track_path = track_path or Path(exp.get("track", "maps/FlyingExampleMap.json"))
-    track = Track.load(track_path)
+    track = Track.load(track_path, exp.get("direction", "cw"))
     track_data = json.loads(Path(track_path).read_text(encoding="utf-8"))
     durations = exp.get("occlusion_ms_by_zone") or expand_cyclic(
         [int(v) for v in exp.get("occlusion_ms", [])], len(track.zones))

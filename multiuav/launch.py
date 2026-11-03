@@ -94,7 +94,8 @@ def apply_occlusion_look(cfg: dict) -> bool:
                                 f"-script={args}", "-nullrhi", "-unattended", "-nosplash", "-nop4"],
                                stdout=log, stderr=subprocess.STDOUT)
     current = json.loads(track_file.read_text(encoding="utf-8")).get("occlusion", {})
-    if code != 0 or str(current.get("color", "")).lower() != color:
+    ok = "Python script executed successfully" in out.read_text(encoding="utf-8", errors="replace")
+    if not ok or str(current.get("color", "")).lower() != color:
         raise RuntimeError(f"не удалось применить затемнение к карте, см. {out}")
     return True
 
@@ -119,7 +120,8 @@ def run_launch(config: Path, participant: str | None = None, backend_name: str =
         out = new_attempt_dir(cfg.get("participant", ""))
         cfg["out"] = str(out)
     out.mkdir(parents=True, exist_ok=True)
-    track = Track.load(cfg["track"]) if cfg.get("track") else None
+    cfg["direction"] = cfg.get("direction", "cw")
+    track = Track.load(cfg["track"], cfg["direction"]) if cfg.get("track") else None
     cfg["occlusion_ms"] = parse_occlusion(cfg.get("occlusion_ms", []))
     zones = len(track.zones) if track else 0
     cfg["occlusion_ms_by_zone"] = expand_cyclic(cfg["occlusion_ms"], zones)
@@ -170,6 +172,8 @@ def run_launch(config: Path, participant: str | None = None, backend_name: str =
                 status(f"игра запускается (PID {game.pid})")
             _wait_game(game, int(cfg.get("unreal_timeout_s", 180)), stop)
             status("Cosys ответил")
+            if track is not None:
+                _park_other_gates(cfg)
 
         if not no_sticks:
             sticks = _start_sticks(cfg, out)
@@ -284,7 +288,33 @@ def _scenario(cfg: dict):
         params["sticks_map"] = cfg["sticks_map"]
     sc.leader = AlgorithmSpec(sc.leader.name, params)
     sc.duration_s = None  # конец — по часам, в TrialRecorder
+    if cfg.get("track"):
+        import math
+
+        sc.heading = Track.load(cfg["track"], cfg.get("direction", "cw")).start_heading
+        sc.heading = math.remainder(sc.heading, 2 * math.pi)
     return sc
+
+
+def _park_other_gates(cfg: dict) -> None:
+    """Ворота другого направления — под карту, на всё время игры (рамка едет за точкой)."""
+    from .track import gate_actors
+
+    data = json.loads(Path(cfg["track"]).read_text(encoding="utf-8"))
+    other = "ccw" if cfg["direction"] == "cw" else "cw"
+    names = gate_actors(data, other)
+    if not names:
+        return
+    import cosysairsim as airsim
+
+    client = airsim.MultirotorClient()
+    client.confirmConnection()
+    for k, name in enumerate(names):
+        pose = airsim.Pose(airsim.Vector3r(0.0, 50.0 * k, 9000.0), airsim.Quaternionr())
+        if not client.simSetObjectPose(name, pose, True):
+            status(f"не удалось убрать ворота {name} другого направления")
+    title = data.get("directions", {}).get(cfg["direction"], {}).get("title", cfg["direction"])
+    status(f"направление: {title}; ворота другого направления убраны")
 
 
 def _backend(name: str):

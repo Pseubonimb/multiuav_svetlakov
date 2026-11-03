@@ -95,19 +95,30 @@ class Track:
     start_heading: float  # рад
 
     @classmethod
-    def load(cls, path: str | Path) -> Track:
+    def load(cls, path: str | Path, direction: str = "cw") -> Track:
         data = json.loads(Path(path).read_text(encoding="utf-8"))
-        return cls.from_dict(data)
+        return cls.from_dict(data, direction)
 
     @classmethod
-    def from_dict(cls, data: dict) -> Track:
-        gates = [Gate(g["index"], g["name"], _vec(g["center"]), math.radians(g["heading_deg"]),
-                      float(g["width_m"]), float(g["height_m"])) for g in data["gates"]]
-        zones = [Zone(z["index"], z["name"], z.get("label", z["name"]), _vec(z["center"]),
+    def from_dict(cls, data: dict, direction: str = "cw") -> Track:
+        """direction — cw (по часовой) или ccw: зоны и ворота нумеруются по ходу полёта."""
+        if "directions" in data:
+            if direction not in data["directions"]:
+                raise ValueError(f"нет направления {direction}, есть: {', '.join(data['directions'])}")
+            d = data["directions"][direction]
+            raw_zones = [data["zones"][i] for i in d["zones"]]
+            raw_gates = d["gates"]
+            heading = d["start_heading_deg"]
+        else:
+            raw_zones, raw_gates = data["zones"], data["gates"]
+            heading = data.get("start_heading_deg", data.get("player_start_yaw_deg", 0.0))
+        gates = [Gate(k, g["name"], _vec(g["center"]), math.radians(g["heading_deg"]),
+                      float(g["width_m"]), float(g["height_m"])) for k, g in enumerate(raw_gates)]
+        zones = [Zone(k, z["name"], z.get("label", z["name"]), _vec(z["center"]),
                       np.array([z["half_size"]["north"], z["half_size"]["east"], z["half_size"]["up"]]))
-                 for z in data["zones"]]
-        heading = data.get("start_heading_deg", data.get("player_start_yaw_deg", 0.0))
+                 for k, z in enumerate(raw_zones)]
         return cls(data.get("map", ""), gates, zones, math.radians(float(heading)))
+
 
     def gate_passed(self, p0: np.ndarray, p1: np.ndarray) -> list[tuple[Gate, float]]:
         """Ворота, через проём которых прошёл отрезок p0→p1, и доля отрезка."""
@@ -124,3 +135,9 @@ def expand_cyclic(values: list[float], count: int) -> list[float]:
     if not values:
         return []
     return [values[i % len(values)] for i in range(count)]
+
+
+def gate_actors(data: dict, direction: str) -> list[str]:
+    """Имена объектов Unreal (точек-«родителей») ворот этого направления."""
+    return [g["actor"] for g in data.get("directions", {}).get(direction, {}).get("gates", [])
+            if g.get("actor")]
