@@ -1,0 +1,67 @@
+# Ведущего ведёт человек с геймпада по городу (те же дома, что в line_blocks_city).
+# Маршрут: на север до перекрёстка (60 м), направо (на восток) до 80 м,
+# налево (на север) до 140 м, налево (на запад) — финиш в конце этой улицы.
+# Полёт кончается сам, когда все долетят до финиша; или Ctrl+C.
+#
+#   python -m multiuav settings scenarios/rc_gamepad_city.yaml --write
+#   (Play в редакторе Unreal, дождаться дронов)
+#   python examples/spawn_walls.py scenarios/rc_gamepad_city.yaml
+#   python -m multiuav run scenarios/rc_gamepad_city.yaml --backend cosys --out runs/gpc1 --plot runs/gpc1.png
+#
+# Высоту в городе НЕ менять (левый стик вверх-вниз не трогать): ведомые держат 30 м,
+# и если ведущий перелетит через дом, они полетят за ним прямо в стену.
+name: rc_gamepad_city
+drones: 5
+rate_hz: 10
+rotor_drag: 0.035
+duration_s: null
+
+start: {north: 0, east: 0, altitude: 30, heading_deg: 0, spacing: 6}
+
+leader:
+  algorithm: multiuav.algorithms.gamepad_auto:AutoGamepadPilot   # геймпад ищется сам, номер не нужен
+  params:
+    # name: 8bitdo   # если подключено два геймпада — часть имени нужного (8bitdo, msi, ...)
+    deadzone: 0.1
+    mode: althold
+    # Оси выбираются сами (Xbox — 0,1,3,4; Switch Pro — 0,1,2,3); свои — так:
+    # axes: {yaw: 0, throttle: 1, roll: 3, pitch: 4}
+    # invert: [pitch, throttle]
+
+followers:
+  algorithm: line_follow
+  params:
+    distance: 6
+    max_speed: 12
+    k_speed: 0.5
+    k_vel: 1.0
+    look: 4
+    eps: 0.6
+    clock: auto
+    debug: true
+    world_from: scenarios/rc_gamepad_city.yaml   # дома заслоняют соседей от камеры
+
+perception:
+  lidar_range: 0
+  vision_range: 40
+  fov_deg: 140
+  noise: 0.03
+
+limits:
+  max_tilt_deg: 15
+  max_yaw_rate_deg: 60
+  max_climb: 1          # случайно задетый стик почти не меняет высоту
+
+stop_on_collision: false
+show_rc: true
+
+world:
+  buildings:            # высота 35 м — выше дронов (30 м), но в городе светлее
+    - {north: [-80, 200], east: [-60, -5], height: 35}
+    - {north: [-80, 55], east: [5, 160], height: 35}
+    - {north: [65, 135], east: [-5, 75], height: 35}
+    - {north: [145, 200], east: [-5, 160], height: 35}
+    - {north: [55, 145], east: [85, 160], height: 35}
+    - {north: [135, 145], east: [-5, 10], height: 35}
+
+finish: {north: [135, 145], east: [10, 75]}

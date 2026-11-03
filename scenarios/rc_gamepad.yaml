@@ -1,0 +1,62 @@
+# Ведущего ведёт человек с геймпада, ведомые line_follow выстраиваются на его пути.
+# Открытое поле, без домов — чтобы освоиться с управлением.
+#
+# Геймпад подключать по проводу USB или через USB-приёмник (не по Bluetooth).
+# Проверить, какой геймпад найден и его оси:  python examples/list_gamepads.py --live
+# Запуск:
+#   python -m multiuav settings scenarios/rc_gamepad.yaml --write
+#   (Play в редакторе Unreal, дождаться дронов)
+#   python -m multiuav run scenarios/rc_gamepad.yaml --backend cosys --out runs/gp1 --plot runs/gp1.png
+# Остановить: Ctrl+C. Клавиша L в терминале — посадить ведомых, ещё раз L — поднять.
+#
+# Управление (режим AltHold, как на пульте Mode 2):
+#   левый стик  вверх/вниз — подъём/спуск, влево/вправо — поворот на месте;
+#   правый стик вверх/вниз — вперёд/назад, влево/вправо — вбок.
+# Отпустить стики — дрон выравнивается и плавно тормозит сам (сопротивление воздуха);
+# остановиться быстрее — коротко потянуть правый стик назад.
+name: rc_gamepad
+drones: 5             # ведущий + 4 ведомых
+rate_hz: 10
+rotor_drag: 0.035     # сопротивление винтов (патч 04 плагина)
+duration_s: null      # без ограничения времени; остановить — Ctrl+C
+
+start: {north: 0, east: 0, altitude: 30, heading_deg: 0, spacing: 6}
+
+leader:
+  algorithm: multiuav.algorithms.gamepad_auto:AutoGamepadPilot   # геймпад ищется сам, номер не нужен
+  params:
+    # name: 8bitdo   # если подключено два геймпада — часть имени нужного (8bitdo, msi, ...)
+    deadzone: 0.1     # стики недорогих геймпадов в покое показывают не ровно ноль
+    mode: althold
+    # Оси выбираются сами по геймпаду (Xbox — 0,1,3,4; Switch Pro — 0,1,2,3).
+    # Если дрон всё равно слушается не тех стиков — вписать свои номера
+    # (посмотреть: python examples/list_gamepads.py --live):
+    # axes: {yaw: 0, throttle: 1, roll: 3, pitch: 4}
+    # Если стик работает наоборот — добавить его в список (по умолчанию [pitch, throttle]):
+    # invert: [pitch, throttle]
+
+followers:
+  algorithm: line_follow
+  params:
+    distance: 6
+    max_speed: 12
+    k_speed: 0.5
+    k_vel: 1.0
+    look: 4
+    eps: 0.6
+    clock: auto
+    debug: true
+
+perception:
+  lidar_range: 0      # без лидаров: они замедляют Unreal (алгоритм лидар не читает)
+  vision_range: 40
+  fov_deg: 140
+  noise: 0.03
+
+limits:               # «аккуратный пилот»: полный стик — плавное движение
+  max_tilt_deg: 15      # наклон при полном стике (меньше — медленнее летит)
+  max_yaw_rate_deg: 60  # поворот при полном стике, град/с
+  max_climb: 3          # подъём при полном стике, м/с
+
+stop_on_collision: false   # ручной полёт: столкновение записывается, полёт продолжается
+show_rc: true              # стики и режим поверх окна Unreal
