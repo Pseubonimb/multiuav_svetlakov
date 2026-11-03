@@ -59,11 +59,7 @@ MAT_DIR = "/Game/MultiUAV"
 OCCLUSION_LABEL = "MU_Occlusion"
 OCCLUSION_SIZE_CM = 40000           # куб 400 м: дрон за 2 с затемнения из него не вылетит
 OCCLUSION_PARK_CM = (0.0, 0.0, -1.0e6)  # «стоянка» — 10 км под картой
-FLASH_LABEL = "MU_CollisionFlash"   # красная вспышка при касании, так же «стоит» под картой
-FLASH_PARK_CM = (0.0, 100000.0, -1.0e6)
-FLASH_COLOR = (1.0, 0.0, 0.0)
-FLASH_STRENGTH = 0.45               # непрозрачность красного
-FLASH_DIAMETER_CM = 600
+FLASH_LABEL = "MU_CollisionFlash"   # была красная вспышка при касании — убрана, удаляется с карты
 
 les = unreal.get_editor_subsystem(unreal.LevelEditorSubsystem)
 eas = unreal.get_editor_subsystem(unreal.EditorActorSubsystem)
@@ -255,51 +251,6 @@ def fit_zone(zone, axis, walls):
     log(f"зона {zone.get_actor_label()}: поперёк {2 * half / 100:.1f} м")
 
 
-def flash_material():
-    """Полупрозрачный красный без освещения, с двух сторон: сфера вокруг дрона красит кадр."""
-    path = f"{MAT_DIR}/M_MultiUAV_Flash"
-    if unreal.EditorAssetLibrary.does_asset_exist(path):
-        unreal.EditorAssetLibrary.delete_asset(path)
-    mat = tools.create_asset("M_MultiUAV_Flash", MAT_DIR, unreal.Material, unreal.MaterialFactoryNew())
-    mat.set_editor_property("blend_mode", unreal.BlendMode.BLEND_TRANSLUCENT)
-    mat.set_editor_property("shading_model", unreal.MaterialShadingModel.MSM_UNLIT)
-    mat.set_editor_property("two_sided", True)
-    color = mel.create_material_expression(mat, unreal.MaterialExpressionVectorParameter, -500, 0)
-    color.set_editor_property("parameter_name", "Color")
-    color.set_editor_property("default_value", unreal.LinearColor(*FLASH_COLOR, 1.0))
-    strength = mel.create_material_expression(mat, unreal.MaterialExpressionScalarParameter, -500, 200)
-    strength.set_editor_property("parameter_name", "Strength")
-    strength.set_editor_property("default_value", FLASH_STRENGTH)
-    mel.connect_material_property(color, "", unreal.MaterialProperty.MP_EMISSIVE_COLOR)
-    mel.connect_material_property(strength, "", unreal.MaterialProperty.MP_OPACITY)
-    mel.recompile_material(mat)
-    unreal.EditorAssetLibrary.save_loaded_asset(mat)
-    return mat
-
-
-def flash_volume(_template=None):
-    """Красная вспышка при касании: полупрозрачная сфера 6 м без коллизии, «стоит» под картой;
-    MultiUAV на 0,4 с ставит её вокруг дрона. (Второй PostProcessVolume из Python не
-    создать: у нового объёма нет настоящей кисти, и он не срабатывает.)"""
-    for a in actors():
-        if a.get_actor_label() == FLASH_LABEL:
-            a.destroy_actor()
-    sphere = unreal.load_asset("/Engine/BasicShapes/Sphere.Sphere")
-    a = eas.spawn_actor_from_class(unreal.StaticMeshActor, unreal.Vector(*FLASH_PARK_CM))
-    a.root_component.set_mobility(unreal.ComponentMobility.MOVABLE)
-    comp = a.static_mesh_component
-    comp.set_static_mesh(sphere)
-    comp.set_material(0, flash_material())
-    comp.set_collision_profile_name("NoCollision")
-    comp.set_collision_enabled(unreal.CollisionEnabled.NO_COLLISION)
-    comp.set_editor_property("cast_shadow", False)
-    a.set_actor_label(FLASH_LABEL)
-    a.set_folder_path(FOLDER)
-    a.set_actor_scale3d(unreal.Vector(FLASH_DIAMETER_CM / 100, FLASH_DIAMETER_CM / 100,
-                                    FLASH_DIAMETER_CM / 100))
-    return a
-
-
 def spawn_box(mesh, label, loc, rot, size_cm, mat, collide=True):
     a = eas.spawn_actor_from_class(unreal.StaticMeshActor, loc, rot)
     if a is None:
@@ -398,15 +349,13 @@ def main(argv):
         return
     if args.export_only:
         vol = next(a for a in actors() if a.get_actor_label() == OCCLUSION_LABEL)
-        flash = next((a for a in actors() if a.get_actor_label() == FLASH_LABEL), None)
     else:
         for a in actors():
-            if unreal.Name(TAG) in a.tags:
+            if unreal.Name(TAG) in a.tags or a.get_actor_label() == FLASH_LABEL:
                 a.destroy_actor()
         frame_mat = material("M_MultiUAV_GateFrame", (1.0, 0.35, 0.0), 0.4)
         dot_mat = material("M_MultiUAV_GateDot", (1.0, 0.0, 0.0), 8.0)
         vol = occlusion_volume(mi)
-        flash = flash_volume(vol)
 
     def ned(x, y, z):
         return {"north": round((x - s.x) / 100, 3), "east": round((y - s.y) / 100, 3),
@@ -489,9 +438,6 @@ def main(argv):
                       "size_m": OCCLUSION_SIZE_CM / 100,
                       "park_ned": [OCCLUSION_PARK_CM[0] / 100, OCCLUSION_PARK_CM[1] / 100,
                                    -OCCLUSION_PARK_CM[2] / 100]},
-        "collision_flash": None if flash is None else {
-            "volume": flash.get_name(), "label": FLASH_LABEL,
-            "park_ned": [FLASH_PARK_CM[0] / 100, FLASH_PARK_CM[1] / 100, -FLASH_PARK_CM[2] / 100]},
         "centerline": CENTERLINE,
         "walls": walls_ne,
         "zones": out_zones,  # по ходу по часовой; для направления — directions[…]["zones"]

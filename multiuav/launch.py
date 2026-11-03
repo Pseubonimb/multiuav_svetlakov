@@ -218,16 +218,7 @@ def run_launch(config: Path, participant: str | None = None, backend_name: str =
                 else:
                     screen = LogScreen(events)
                 occluder = Occluder(track, cfg["occlusion_ms_by_zone"], screen)
-            flasher = None
-            flash = (json.loads(Path(cfg["track"]).read_text(encoding="utf-8")).get("collision_flash")
-                     if track is not None else None)
-            flash_ms = int(cfg.get("collision_flash_ms", 400))
-            if backend_name == "cosys" and flash and flash_ms > 0:
-                from .occlusion import CosysScreen
-
-                flasher = CosysScreen(flash["volume"], flash["park_ned"])
-            recorder = TrialRecorder(out, track, duration, reset_requests, on_tick, alive, occluder,
-                                     flasher, flash_ms)
+            recorder = TrialRecorder(out, track, duration, reset_requests, on_tick, alive, occluder)
             backend = _backend(backend_name)
             states = backend.states
             backend.states = lambda: (recorder.stamp(), states())[1]
@@ -255,8 +246,6 @@ def run_launch(config: Path, participant: str | None = None, backend_name: str =
             if recorder.occluder is not None:
                 recorder.occluder.screen.close()
                 recorder.occluder.screen.log.close()
-            if recorder.flasher is not None:
-                recorder.flasher.close()
             recorder.close()
         stop_process(sticks, "запись пульта", signal.SIGINT, 5)
         if game is not None:

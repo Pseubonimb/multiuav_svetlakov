@@ -179,3 +179,40 @@ def test_track_zone_entry_and_gate():
     assert z.entry(np.array([0, 30, 5.0]), np.array([0, 45, 5.0])) == pytest.approx(10 / 15)
     assert track.gate_passed(np.array([0, 69, 5.0]), np.array([0, 71, 5.0]))[0][0].name == "G1"
     assert track.gate_passed(np.array([0, 71, 5.0]), np.array([0, 69, 5.0])) == []  # назад
+
+
+def test_reset_goes_to_gate_flown_over(tmp_path):
+    """R после пролёта НАД проёмом (на 3 м выше центра) — к этим воротам, а не на старт."""
+    import threading
+
+    import numpy as np
+
+    from multiuav.experiment import TrialRecorder
+    from multiuav.types import DroneState
+
+    class Backend:
+        def __init__(self):
+            self.reset_to = None
+
+        def reset(self, i, pos, heading):
+            self.reset_to = (np.asarray(pos), heading)
+
+        def message(self, text):
+            pass
+
+    class Manager:
+        backend = Backend()
+        stop = threading.Event()
+
+    requests = []
+    rec = TrialRecorder(tmp_path, Track.from_dict(TRACK), None, lambda: requests.pop() if requests else "")
+    m = Manager()
+    for east in (60.0, 68.0, 72.0, 80.0):  # ворота G1 на 70 м, высота 5 м, летим на 8 м
+        rec(m, [DroneState(0, np.array([0.0, east, -8.0]), np.zeros(3), 0.0)], {})
+    requests.append("клавиша R")
+    rec(m, [DroneState(0, np.array([0.0, 85.0, -8.0]), np.zeros(3), 0.0)], {})
+    rec.close()
+    pos, heading = m.backend.reset_to
+    assert list(pos) == [0, 70, 5] and heading == pytest.approx(np.pi / 2)
+    rows = _rows(tmp_path / "resets.csv")
+    assert rows[0]["gate_name"] == "G1" and rows[0]["source"] == "клавиша R"

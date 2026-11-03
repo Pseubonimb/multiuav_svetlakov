@@ -23,7 +23,7 @@ from pathlib import Path
 
 import numpy as np
 
-from .track import Track
+from .track import ATTEMPT_RADIUS_M, Track
 
 WEEKDAYS = ("понедельник", "вторник", "среда", "четверг", "пятница", "суббота", "воскресенье")
 DEFAULT_CONFIG = Path("experiments/friday.json")
@@ -114,17 +114,13 @@ class TrialRecorder:
     """
 
     def __init__(self, out: Path, track: Track | None, duration_s: float | None,
-                 reset_requests=None, on_tick=None, alive=None, occluder=None,
-                 flasher=None, flash_ms: int = 400) -> None:
+                 reset_requests=None, on_tick=None, alive=None, occluder=None) -> None:
         self.track = track
         self.duration_s = duration_s
         self.reset_requests = reset_requests
         self.on_tick = on_tick
         self.alive = alive
         self.occluder = occluder
-        self.flasher = flasher  # красная вспышка экрана в начале касания (CosysScreen)
-        self.flash_ms = flash_ms
-        self._touching = False
         self.flight = _CsvLog(out / "drone0.csv", FLIGHT_COLUMNS)
         self.resets = _CsvLog(out / "resets.csv", RESET_COLUMNS)
         self.collisions = _CsvLog(out / "collisions.csv", COLLISION_COLUMNS)
@@ -153,8 +149,13 @@ class TrialRecorder:
         if self.start_pose is None:
             self.start_pose = (pos.copy(), me.yaw)
         if self.track is not None and self._prev is not None:
-            for gate, _ in self.track.gate_passed(self._prev, pos):
-                self.last_gate = gate
+            # «Пройденные» ворота для R — любые, плоскость которых пересекли рядом с ними:
+            # и сквозь проём, и над/мимо него (пилот 04.11 пролетал на 3 м выше центра).
+            for gate in self.track.gates:
+                a = gate.crossing(self._prev, pos)
+                if a is not None and np.linalg.norm(self._prev + a * (pos - self._prev)
+                                                    - gate.center) <= ATTEMPT_RADIUS_M:
+                    self.last_gate = gate
         self._prev = pos
         if self.occluder is not None:
             self.occluder.step(pos, me.velocity, time.monotonic())
@@ -163,9 +164,6 @@ class TrialRecorder:
         self.flight.row([ms, f"{t_s:.3f}", f"{pos[0]:.3f}", f"{pos[1]:.3f}", f"{pos[2]:.3f}",
                          f"{math.degrees(me.yaw):.2f}", f"{math.degrees(me.roll):.2f}",
                          f"{math.degrees(me.pitch):.2f}", int(me.touching), *channels])
-        if me.touching and not self._touching and self.flasher is not None:
-            self.flasher.show(None, self.flash_ms, time.monotonic())
-        self._touching = me.touching
         if me.touching:
             self.collisions.row([ms, f"{t_s:.3f}", me.touched, f"{pos[0]:.3f}", f"{pos[1]:.3f}",
                                  f"{pos[2]:.3f}"], sync=True)
@@ -185,7 +183,8 @@ class TrialRecorder:
             manager.stop.set()
 
     def reset(self, backend, pos: np.ndarray, source: str) -> None:
-        """К центру последних пройденных ворот, носом по ходу трассы; ворот нет — на старт."""
+        """К центру последних пересечённых ворот (сквозь проём или рядом), носом по ходу
+        трассы; ворот ещё не было — на старт."""
         if self.last_gate is not None:
             target, heading = self.last_gate.center.copy(), self.last_gate.heading
             gate, name = self.last_gate.index, self.last_gate.name

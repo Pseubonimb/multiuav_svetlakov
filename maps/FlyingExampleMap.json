@@ -20,15 +20,6 @@
       10000.0
     ]
   },
-  "collision_flash": {
-    "volume": "StaticMeshActor_535",
-    "label": "MU_CollisionFlash",
-    "park_ned": [
-      0.0,
-      1000.0,
-      10000.0
-    ]
-  },
   "centerline": [
     [
       0,
@@ -3724,7 +3715,7 @@
         {
           "index": 0,
           "name": "MU_GateCW01",
-          "actor": "StaticMeshActor_622",
+          "actor": "StaticMeshActor_535",
           "after_zone": 0,
           "center": {
             "north": 196.185,
@@ -3738,7 +3729,7 @@
         {
           "index": 1,
           "name": "MU_GateCW02",
-          "actor": "StaticMeshActor_632",
+          "actor": "StaticMeshActor_630",
           "after_zone": 1,
           "center": {
             "north": 363.362,
@@ -3752,7 +3743,7 @@
         {
           "index": 2,
           "name": "MU_GateCW03",
-          "actor": "StaticMeshActor_720",
+          "actor": "StaticMeshActor_681",
           "after_zone": 2,
           "center": {
             "north": 301.165,
@@ -3766,7 +3757,7 @@
         {
           "index": 3,
           "name": "MU_GateCW04",
-          "actor": "StaticMeshActor_730",
+          "actor": "StaticMeshActor_729",
           "after_zone": 3,
           "center": {
             "north": -167.335,
@@ -3780,7 +3771,7 @@
         {
           "index": 4,
           "name": "MU_GateCW05",
-          "actor": "StaticMeshActor_787",
+          "actor": "StaticMeshActor_744",
           "after_zone": 4,
           "center": {
             "north": -532.824,
@@ -3794,7 +3785,7 @@
         {
           "index": 5,
           "name": "MU_GateCW06",
-          "actor": "StaticMeshActor_796",
+          "actor": "StaticMeshActor_794",
           "after_zone": 5,
           "center": {
             "north": -546.726,
@@ -3808,7 +3799,7 @@
         {
           "index": 6,
           "name": "MU_GateCW07",
-          "actor": "StaticMeshActor_824",
+          "actor": "StaticMeshActor_820",
           "after_zone": 6,
           "center": {
             "north": -246.571,
@@ -3837,7 +3828,7 @@
         {
           "index": 0,
           "name": "MU_GateCCW01",
-          "actor": "StaticMeshActor_833",
+          "actor": "StaticMeshActor_831",
           "after_zone": 0,
           "center": {
             "north": -268.974,
@@ -3851,7 +3842,7 @@
         {
           "index": 1,
           "name": "MU_GateCCW02",
-          "actor": "StaticMeshActor_838",
+          "actor": "StaticMeshActor_837",
           "after_zone": 1,
           "center": {
             "north": -546.726,
@@ -3865,7 +3856,7 @@
         {
           "index": 2,
           "name": "MU_GateCCW03",
-          "actor": "StaticMeshActor_843",
+          "actor": "StaticMeshActor_842",
           "after_zone": 2,
           "center": {
             "north": -511.007,
@@ -3879,7 +3870,7 @@
         {
           "index": 3,
           "name": "MU_GateCCW04",
-          "actor": "StaticMeshActor_848",
+          "actor": "StaticMeshActor_847",
           "after_zone": 3,
           "center": {
             "north": -148.331,
@@ -3893,7 +3884,7 @@
         {
           "index": 4,
           "name": "MU_GateCCW05",
-          "actor": "StaticMeshActor_853",
+          "actor": "StaticMeshActor_852",
           "after_zone": 4,
           "center": {
             "north": 323.565,
@@ -3907,7 +3898,7 @@
         {
           "index": 5,
           "name": "MU_GateCCW06",
-          "actor": "StaticMeshActor_858",
+          "actor": "StaticMeshActor_857",
           "after_zone": 5,
           "center": {
             "north": 363.362,
@@ -3921,7 +3912,7 @@
         {
           "index": 6,
           "name": "MU_GateCCW07",
-          "actor": "StaticMeshActor_863",
+          "actor": "StaticMeshActor_862",
           "after_zone": 6,
           "center": {
             "north": 177.18,
