@@ -37,6 +37,11 @@ class DroneState:
     # Сектор i смотрит по курсу i * 360 / len(ranges) градусов (0 — север, по часовой).
     # None — бэкенд дальномер не моделирует.
     ranges: np.ndarray | None = None
+    roll: float = 0.0  # рад, > 0 — крен вправо
+    pitch: float = 0.0  # рад, > 0 — нос вверх (как у AirSim)
+    # Новое касание в этот шаг (не «когда-то столкнулся», как collided) и с чем.
+    touching: bool = False
+    touched: str = ""
 
     @property
     def altitude(self) -> float:

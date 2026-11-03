@@ -6,6 +6,9 @@
   cameras   экраны с камер ведомых поверх окна Unreal
   gamepad   показать оси геймпада, чтобы настроить раскладку
   sticks    журнал стиков пульта через evdev (отдельно от симулятора)
+  experiment  меню эксперимента: участник, затемнения, Старт/Стоп, обработка
+  launch    одна попытка целиком: игра, запись пульта, полёт (то, что делает «Старт»)
+  analyze   обработать папку попытки: ворота, нажатия SE, затемнения
 """
 
 from __future__ import annotations
@@ -45,6 +48,10 @@ def _load(args) -> Scenario:
         sc.leader = AlgorithmSpec(args.leader, sc.leader.params)
     if getattr(args, "mode", None):
         sc.leader = AlgorithmSpec(sc.leader.name, {**sc.leader.params, "mode": args.mode})
+    if getattr(args, "model", None):
+        sc.model = args.model.lower()  # generic, fast, fast2.5 …
+    if getattr(args, "rotor_drag", None) is not None:
+        sc.rotor_drag = args.rotor_drag
     return sc
 
 
@@ -141,9 +148,34 @@ def cmd_sticks(args) -> None:
         sticklog.run_list(args.device)
     elif args.action == "map":
         sticklog.run_map(args.device, args.map)
+    elif args.action == "button":
+        sticklog.run_button(args.device, args.map, args.name)
     else:
         sticklog.run_log(args.device, args.map, args.out, args.profile, args.adc_filter,
                          args.note, args.keep_fuzz, args.fsync)
+
+
+def cmd_launch(args) -> None:
+    from .launch import run_launch
+
+    result = run_launch(Path(args.config), args.participant, args.backend, args.no_game,
+                        args.no_sticks)
+    if not result.get("ok"):
+        raise SystemExit(1)
+
+
+def cmd_experiment(args) -> None:
+    from .menu import run_menu
+
+    run_menu(Path(args.config))
+
+
+def cmd_analyze(args) -> None:
+    from .analyze import analyze
+
+    summary = analyze(Path(args.folder), Path(args.track) if args.track else None,
+                      window_s=args.window)
+    print(json.dumps(summary, ensure_ascii=False, indent=2))
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -178,6 +210,9 @@ def main(argv: list[str] | None = None) -> None:
     settings.add_argument("scenario")
     settings.add_argument("--drones", type=int)
     settings.add_argument("--followers", type=int, help="сколько ведомых (дронов будет N+1)")
+    settings.add_argument("--model", help="модель дрона вместо указанной в сценарии: generic, fast, fast2.5 …")
+    settings.add_argument("--rotor-drag", type=float,
+                          help="сопротивление винтов, с/м, вместо указанного в сценарии (0 — выключить)")
     settings.add_argument("--subwindows", action="store_true",
                           help="камеры первых 3 ведомых во встроенных подокнах AirSim (внизу окна)")
     settings.add_argument("--messages", action="store_true",
@@ -208,8 +243,10 @@ def main(argv: list[str] | None = None) -> None:
     gamepad.set_defaults(func=cmd_gamepad)
 
     sticks = sub.add_parser("sticks", help="журнал стиков пульта через evdev")
-    sticks.add_argument("action", choices=["list", "map", "log"],
-                        help="list — оси и диапазоны, map — разметить стики, log — записать попытку")
+    sticks.add_argument("action", choices=["list", "map", "button", "log"],
+                        help="list — оси и диапазоны, map — разметить стики, "
+                             "button — разметить кнопку (--name SE), log — записать попытку")
+    sticks.add_argument("--name", default="SE", help="имя кнопки для button")
     sticks.add_argument("--device", help="/dev/input/eventN (по умолчанию — найти пульт)")
     sticks.add_argument("--map", type=Path, default=Path("radio/sticks_map.json"),
                         help="файл соответствия стиков и осей")
@@ -222,6 +259,28 @@ def main(argv: list[str] | None = None) -> None:
     sticks.add_argument("--fsync", action="store_true",
                         help="fsync после каждой строки (по умолчанию — раз в секунду)")
     sticks.set_defaults(func=cmd_sticks)
+
+    experiment = sub.add_parser("experiment", help="меню эксперимента (окно)")
+    experiment.add_argument("--config", default="experiments/friday.json",
+                            help="параметры по умолчанию")
+    experiment.set_defaults(func=cmd_experiment)
+
+    launch = sub.add_parser("launch", help="одна попытка: игра, запись пульта, полёт")
+    launch.add_argument("config", help="experiment.json (папка попытки) или experiments/friday.json")
+    launch.add_argument("--participant", help="код участника вместо указанного в файле")
+    launch.add_argument("--backend", choices=["cosys", "kinematic"], default="cosys",
+                        help="kinematic — проверка без Unreal")
+    launch.add_argument("--no-game", action="store_true",
+                        help="игру не запускать: она уже открыта (Play в редакторе)")
+    launch.add_argument("--no-sticks", action="store_true", help="без записи пульта (sticks log)")
+    launch.set_defaults(func=cmd_launch)
+
+    analyze = sub.add_parser("analyze", help="обработать папку попытки")
+    analyze.add_argument("folder")
+    analyze.add_argument("--track", help="файл ворот и зон (по умолчанию — из experiment.json)")
+    analyze.add_argument("--window", type=float, default=2.0,
+                         help="нажатие относится к воротам, если до пролёта не дальше, с")
+    analyze.set_defaults(func=cmd_analyze)
 
     args = parser.parse_args(argv)
     args.func(args)

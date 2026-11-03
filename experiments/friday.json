@@ -1,0 +1,29 @@
+{
+  "participant": "P00",
+  "occlusion_ms": [
+    500,
+    500,
+    1000,
+    75,
+    500
+  ],
+  "occlusion_color": "#969696",
+  "occlusion_image": "",
+  "duration_s": 1800,
+  "task": "30 минут летите по трассе, стараясь не касаться стен. Старайтесь пролетать ворота через центр. Каждый раз, когда пролетаете ворота, нажмите кнопку SE — и когда экран погас, и когда он виден.",
+  "scenario": "scenarios/friday_trial.yaml",
+  "mode": "acro",
+  "model": "fast2.5",
+  "rotor_drag": 0.035,
+  "track": "maps/FlyingExampleMap.json",
+  "map": "/Game/FlyingCPP/Maps/FlyingExampleMap",
+  "project": "~/Desktop/New_Karta_Vitali/Blocks.uproject",
+  "engine": "~/Downloads/UnrealEngine5/Engine/Binaries/Linux/UnrealEditor",
+  "quality": 1,
+  "fullscreen": true,
+  "sticks_map": "radio/sticks_map.json",
+  "edgetx_profile": "не указан",
+  "adc_filter": "unknown",
+  "reset_key": "r",
+  "unreal_timeout_s": 180
+}

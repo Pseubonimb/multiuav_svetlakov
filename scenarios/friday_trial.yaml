@@ -1,0 +1,30 @@
+# Пробный эксперимент 6 ноября: один дрон, Acro, пилот взлетает сам (как в FPV).
+# Запускается не руками, а из меню: python -m multiuav experiment (или launch experiments/friday.json).
+# Оси пульта — из radio/sticks_map.json (та же разметка, что у записи стиков).
+name: friday_trial
+model: fast2.5        # тяга x2.5, нужны патчи плагина 02–04 (наложены в проекте Виталия)
+rotor_drag: 0.035     # сопротивление винтов: без него дрон «на льду»
+drones: 1
+rate_hz: 20           # строк в drone0.csv в секунду
+duration_s: null      # длительность задаёт experiment.json (по часам), не сценарий
+takeoff: false        # дрон стоит на земле, управление сразу у пульта
+
+start:
+  north: 0
+  east: 0
+  altitude: 0
+  heading_deg: 90     # как PlayerStart карты: нос на восток
+
+perception:
+  lidar_range: 0      # лидар не нужен: ведомых нет
+
+leader:
+  algorithm: gamepad
+  params:
+    sticks_map: radio/sticks_map.json
+    mode: acro
+    deadzone: 0.0     # мёртвую зону задаёт пульт (EdgeTX), тремор не срезаем
+    arm_low_throttle: true  # моторы молчат, пока газ хоть раз не опущен в ноль
+
+stop_on_collision: false  # задел стену — летим дальше, касание в журнале
+show_rc: false

@@ -103,6 +103,9 @@ class Scenario:
     # (0, как в исходном AirSim) дрон скользит, как по льду. Нужен патч плагина 04. В kinematic
     # похожее сопротивление есть всегда (drag 0.35 1/с ≈ k 0.036 на висении).
     rotor_drag: float = 0.0
+    # True — менеджер сам поднимает дронов на altitude (takeoffAsync + moveToZAsync).
+    # False — как в FPV: дрон стоит на земле, управление сразу у пульта, взлетает пилот.
+    takeoff: bool = True
 
     def start_positions(self) -> list[np.ndarray]:
         """Стартовые точки NED: ведущий впереди, остальные колонной позади него."""
@@ -162,4 +165,5 @@ class Scenario:
             model=str(data.get("model", "generic")).lower(),
             rate_gains=_rate_gains(data.get("rate_gains")),
             rotor_drag=float(data.get("rotor_drag", 0.0)),
+            takeoff=bool(data.get("takeoff", True)),
         )

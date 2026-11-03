@@ -70,9 +70,15 @@ class RunResult:
 
 
 class SwarmManager:
-    def __init__(self, scenario: Scenario, backend: SimBackend) -> None:
+    def __init__(self, scenario: Scenario, backend: SimBackend, step_hook=None,
+                 stop=None) -> None:
+        """step_hook(manager, states, sent) — вызывается каждый шаг после отправки команд
+        (журнал эксперимента, сброс к воротам); stop — threading.Event, чтобы остановить
+        полёт из другого потока."""
         self.scenario = scenario
         self.backend = backend
+        self.step_hook = step_hook
+        self.stop = stop
         leader_cls = load_algorithm(scenario.leader.name)
         follower_cls = load_algorithm(scenario.followers.name)
         self.algorithms: list[FollowerAlgorithm] = [
@@ -97,6 +103,8 @@ class SwarmManager:
                   "Ctrl+C — закончить полёт.", flush=True)
         try:
             while sc.duration_s is None or t <= sc.duration_s:
+                if self.stop is not None and self.stop.is_set():
+                    break
                 for key in keyboard.pressed():
                     if key in LAND_KEYS:
                         self.toggle_landing()
@@ -120,6 +128,8 @@ class SwarmManager:
                     self.backend.send(state.id, rc)
                     sent[state.id] = rc
                 self._record(result, states, t, sent)
+                if self.step_hook is not None:
+                    self.step_hook(self, states, sent)
                 self.backend.advance(dt)
                 t += dt
                 if self.backend.realtime:
