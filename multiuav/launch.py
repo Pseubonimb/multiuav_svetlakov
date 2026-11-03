@@ -288,6 +288,10 @@ def _scenario(cfg: dict):
         params["sticks_map"] = cfg["sticks_map"]
     sc.leader = AlgorithmSpec(sc.leader.name, params)
     sc.duration_s = None  # конец — по часам, в TrialRecorder
+    if cfg.get("camera_tilt_deg") is not None:
+        # Наклон FPV-камеры вверх (uptilt), как на гоночных дронах: на скорости дрон наклонён
+        # вперёд, а камера смотрит вдоль полёта.
+        sc.fpv_camera = {**(sc.fpv_camera or {}), "pitch_deg": float(cfg["camera_tilt_deg"])}
     if cfg.get("track"):
         import math
 

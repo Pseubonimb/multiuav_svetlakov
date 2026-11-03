@@ -157,6 +157,16 @@ class Menu:
                              f"{str(self.cfg.get('rotor_drag', '')).replace('.', ',')}"
                   ).grid(row=5, column=1, sticky="w", **pad)
 
+        extra = ttk.LabelFrame(top, text="Дополнительно", padding=8)
+        extra.grid(row=6, column=0, columnspan=2, sticky="ew", **pad)
+        self.tilt = tk.StringVar(value=f"{self.cfg.get('camera_tilt_deg', 20):g}")
+        ttk.Label(extra, text="Наклон камеры вверх, °").grid(row=0, column=0, sticky="w", **pad)
+        ttk.Spinbox(extra, from_=0, to=60, increment=5, textvariable=self.tilt, width=6
+                    ).grid(row=0, column=1, sticky="w", **pad)
+        ttk.Label(extra, text="0 — камера смотрит прямо; на гоночных дронах обычно 20–40°: "
+                              "на скорости дрон наклонён вперёд, а камера смотрит вдоль полёта"
+                  ).grid(row=0, column=2, sticky="w", **pad)
+
         task = ttk.LabelFrame(top, text="Задача пилота", padding=8)
         task.grid(row=1, column=1, sticky="nsew", **pad)
         ttk.Label(task, text=self.cfg.get("task", ""), wraplength=340, justify="left",
@@ -296,6 +306,9 @@ class Menu:
             minutes = float(self.minutes.get().replace(",", "."))
             if minutes <= 0:
                 raise ValueError("длительность должна быть больше нуля")
+            tilt = float(self.tilt.get().replace(",", "."))
+            if not 0 <= tilt <= 60:
+                raise ValueError("наклон камеры — от 0 до 60°")
         except ValueError as e:
             messagebox.showerror("Ошибка", f"Проверьте поля: {e}")
             return
@@ -311,7 +324,7 @@ class Menu:
             return
         self.attempt = new_attempt_dir(self.code.get(), REPO / "runs")
         cfg = {**self.cfg, "participant": self.code.get().strip(), "occlusion_ms": occlusion,
-               "occlusion_color": self.color, "occlusion_image": image,
+               "occlusion_color": self.color, "occlusion_image": image, "camera_tilt_deg": tilt,
                "direction": next((k for k, v in self.directions.items() if v == self.direction.get()),
                                  "cw"),
                "duration_s": round(minutes * 60), "out": str(self.attempt)}
