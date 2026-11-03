@@ -456,6 +456,10 @@
   - Unreal без окна теперь возвращает код 1 и при успехе: в Level Blueprint Виталия осталась
     привязка к удалённому `TriggerBox` («Couldn't find object for bound event node»).
     Успех проверяется по строке `Python script executed successfully`.
+- **Эталон расстановки:** `python -m multiuav track save` копирует карту и
+  `maps/FlyingExampleMap.json` в `~/Desktop/New_Karta_Vitali_baseline/`, `track restore`
+  возвращает их. Эталон 04.11 01:17 — 7 зон пользователя, ворота CW/CCW. На компьютер центра
+  копировать проект Виталия вместе с этой картой.
 - Не проверено к утру 04.11: полёт с пульта на весь экран (`-fullscreen`) и SE в настоящем
   полёте — см. живую проверку.
 

@@ -198,6 +198,25 @@ def cmd_track(args) -> None:
               "python -m multiuav track export")
         subprocess.Popen([str(engine), project, cfg["map"]], env=_game_env(), start_new_session=True)
         return
+    if args.action in ("save", "restore"):
+        import shutil
+
+        umap = Path(project).parent / "Content" / (cfg["map"].replace("/Game/", "") + ".umap")
+        base = Path(os.path.expanduser(cfg.get("track_baseline", "~/Desktop/New_Karta_Vitali_baseline")))
+        if port_open():
+            raise SystemExit("Сначала сохраните карту (Ctrl+S) и закройте редактор/игру")
+        if args.action == "save":
+            base.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(umap, base / umap.name)
+            shutil.copy2(cfg["track"], base / Path(cfg["track"]).name)
+            print(f"Эталон сохранён: {base} (карта и {Path(cfg['track']).name})")
+        else:
+            if not (base / umap.name).exists():
+                raise SystemExit(f"Нет эталона в {base}: сначала python -m multiuav track save")
+            shutil.copy2(base / umap.name, umap)
+            shutil.copy2(base / Path(cfg["track"]).name, cfg["track"])
+            print(f"Эталон возвращён из {base}")
+        return
     if port_open():
         raise SystemExit("Открыт редактор или игра — сохраните карту (Ctrl+S), закройте их и повторите")
     extra = "--export-only" if args.action == "export" else f"--color {cfg.get('occlusion_color', '#969696')}"
@@ -331,9 +350,10 @@ def main(argv: list[str] | None = None) -> None:
     analyze.set_defaults(func=cmd_analyze)
 
     track = sub.add_parser("track", help="ворота и зоны карты эксперимента")
-    track.add_argument("action", choices=["edit", "export", "reset"],
+    track.add_argument("action", choices=["edit", "export", "reset", "save", "restore"],
                        help="edit — открыть карту в редакторе, export — выгрузить ворота и зоны "
-                            "в maps/…json после правки, reset — поставить ворота заново по умолчанию")
+                            "в maps/…json после правки, reset — поставить ворота заново по умолчанию, "
+                            "save — запомнить карту и json как эталон, restore — вернуть эталон")
     track.add_argument("--config", default="experiments/friday.json")
     track.set_defaults(func=cmd_track)
 
