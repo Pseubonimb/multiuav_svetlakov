@@ -110,6 +110,10 @@ class Scenario:
     collision_alarms: bool = True
     # Вид в окне Unreal при старте: FlyWithMe (камера сзади), Fpv (из дрона), Manual …
     view_mode: str = "FlyWithMe"
+    # Положение FPV-камеры (front_center) от центра дрона, м, NED: {x вперёд, y вправо, z вниз,
+    # pitch_deg вверх}. None — как в модели AirSim (камера впереди корпуса и при ударе о стену
+    # «заглядывает» за неё).
+    fpv_camera: dict | None = None
 
     def start_positions(self) -> list[np.ndarray]:
         """Стартовые точки NED: ведущий впереди, остальные колонной позади него."""
@@ -173,4 +177,5 @@ class Scenario:
             takeoff=bool(data.get("takeoff", True)),
             collision_alarms=bool(data.get("collision_alarms", True)),
             view_mode=str(data.get("view_mode", "FlyWithMe")),
+            fpv_camera=data.get("fpv_camera"),
         )

@@ -114,13 +114,17 @@ class TrialRecorder:
     """
 
     def __init__(self, out: Path, track: Track | None, duration_s: float | None,
-                 reset_requests=None, on_tick=None, alive=None, occluder=None) -> None:
+                 reset_requests=None, on_tick=None, alive=None, occluder=None,
+                 flasher=None, flash_ms: int = 400) -> None:
         self.track = track
         self.duration_s = duration_s
         self.reset_requests = reset_requests
         self.on_tick = on_tick
         self.alive = alive
         self.occluder = occluder
+        self.flasher = flasher  # красная вспышка экрана в начале касания (CosysScreen)
+        self.flash_ms = flash_ms
+        self._touching = False
         self.flight = _CsvLog(out / "drone0.csv", FLIGHT_COLUMNS)
         self.resets = _CsvLog(out / "resets.csv", RESET_COLUMNS)
         self.collisions = _CsvLog(out / "collisions.csv", COLLISION_COLUMNS)
@@ -159,6 +163,9 @@ class TrialRecorder:
         self.flight.row([ms, f"{t_s:.3f}", f"{pos[0]:.3f}", f"{pos[1]:.3f}", f"{pos[2]:.3f}",
                          f"{math.degrees(me.yaw):.2f}", f"{math.degrees(me.roll):.2f}",
                          f"{math.degrees(me.pitch):.2f}", int(me.touching), *channels])
+        if me.touching and not self._touching and self.flasher is not None:
+            self.flasher.show(None, self.flash_ms, time.monotonic())
+        self._touching = me.touching
         if me.touching:
             self.collisions.row([ms, f"{t_s:.3f}", me.touched, f"{pos[0]:.3f}", f"{pos[1]:.3f}",
                                  f"{pos[2]:.3f}"], sync=True)

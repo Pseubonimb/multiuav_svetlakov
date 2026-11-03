@@ -69,6 +69,13 @@ def build_settings(scenario: Scenario, with_subwindows: bool = False,
             # Своя доработка плагина (SimpleFlightQuadXParams/SimpleFlightApi): без неё
             # AirSim ключ Model для SimpleFlight молча игнорирует. fast2.5 → "Fast2.5": тяга x2.5.
             vehicles[vehicle_name(i)]["Model"] = "Fast" + scenario.model[4:]
+        if scenario.fpv_camera:
+            c = scenario.fpv_camera
+            pose = {"X": float(c.get("x", 0.0)), "Y": float(c.get("y", 0.0)), "Z": float(c.get("z", 0.0)),
+                    "Pitch": float(c.get("pitch_deg", 0.0)), "Roll": 0.0, "Yaw": 0.0}
+            # Окно игры в режиме FPV показывает камеру «fpv», снимки по API — «front_center»:
+            # обе на одном месте, чтобы пилот видел то же, что пишут и проверяют скрипты.
+            vehicles[vehicle_name(i)]["Cameras"] = {"fpv": dict(pose), "front_center": dict(pose)}
         if scenario.rotor_drag > 0:
             # Тоже своя доработка плагина (патч 04): без неё ключ игнорируется.
             vehicles[vehicle_name(i)]["RotorDrag"] = scenario.rotor_drag

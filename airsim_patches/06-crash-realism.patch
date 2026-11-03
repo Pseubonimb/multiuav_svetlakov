@@ -1,0 +1,34 @@
+--- a/Source/AirLib/include/physics/FastPhysicsEngine.hpp
++++ b/Source/AirLib/include/physics/FastPhysicsEngine.hpp
+@@ -177,7 +177,10 @@
+                 friction = 1;
+ 
+                 //we have collided with ground straight on, we will fix orientation later
+-                ground_collision = is_ground_normal;
++                // MultiUAV: only a gentle upright landing locks to the ground (orientation reset);
++                // a crash or a flipped vehicle keeps its attitude, as a real drone would.
++                ground_collision = is_ground_normal && normal_body.z() < 0 &&
++                                   vcur_avg.norm() < kGroundLockSpeedMax;
+             }
+ 
+             //velocity at contact point
+@@ -247,7 +250,9 @@
+             }
+             else {
+                 //else keep the orientation
+-                next.pose.position = collision_info.position + (collision_info.normal * collision_info.penetration_depth) + next.twist.linear * (dt_real * kCollisionResponseCycles);
++                // MultiUAV: push out a bit more than the penetration, so the camera (ahead of the
++                // collision shape) does not end up inside the obstacle and look through it.
++                next.pose.position = collision_info.position + (collision_info.normal * (collision_info.penetration_depth + kCollisionPushOut)) + next.twist.linear * (dt_real * kCollisionResponseCycles);
+             }
+             next_wrench = Wrench::zero();
+ 
+@@ -481,6 +486,8 @@
+ 
+     private:
+         static constexpr uint kCollisionResponseCycles = 1;
++        static constexpr float kGroundLockSpeedMax = 2.0f; //m/s, faster ground contact is a crash
++        static constexpr float kCollisionPushOut = 0.3f; //m, extra push away from the obstacle
+         static constexpr float kAxisTolerance = 0.25f;
+         static constexpr float kRestingVelocityMax = 0.1f;
+         static constexpr float kDragMinVelocity = 0.1f;

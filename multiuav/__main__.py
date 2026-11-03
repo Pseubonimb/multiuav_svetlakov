@@ -235,10 +235,12 @@ def cmd_track(args) -> None:
         raise SystemExit(f"Не получилось (код {code}), лог: {log}")
     data = json.loads(Path(cfg["track"]).read_text(encoding="utf-8"))
     print(f"Записано {cfg['track']}:")
-    for g in data["gates"]:
-        c = g["center"]
-        print(f"  {g['name']}: север {c['north']:.1f}, восток {c['east']:.1f}, высота {c['alt']:.1f} м, "
-              f"курс {g['heading_deg']:.0f}°")
+    for d in data.get("directions", {}).values():
+        print(f" {d['title']}:")
+        for g in d["gates"]:
+            c = g["center"]
+            print(f"  {g['name']}: север {c['north']:.1f}, восток {c['east']:.1f}, "
+                  f"высота {c['alt']:.1f} м, курс {g['heading_deg']:.0f}°")
     for z in data["zones"]:
         c, h = z["center"], z["half_size"]
         print(f"  зона {z['index'] + 1} ({z['label']}): центр {c['north']:.1f}, {c['east']:.1f}; "

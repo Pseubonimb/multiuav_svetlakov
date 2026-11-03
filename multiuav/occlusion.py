@@ -55,9 +55,10 @@ class Occluder:
 
 
 class CosysScreen:
-    """Поток, двигающий объём затемнения; журнал — в log (_CsvLog)."""
+    """Поток, двигающий объём постобработки к дрону на заданное время: затемнение (журнал —
+    в log, _CsvLog) или красная вспышка при касании (log=None)."""
 
-    def __init__(self, volume: str, park_ned: list[float], log, host: str = "127.0.0.1") -> None:
+    def __init__(self, volume: str, park_ned: list[float], log=None, host: str = "127.0.0.1") -> None:
         self.volume = volume
         self.park = park_ned
         self.log = log
@@ -73,6 +74,9 @@ class CosysScreen:
 
     def show(self, zone, dur_ms: int, at: float) -> None:
         self._jobs.put((zone, dur_ms, at))
+
+    def busy(self) -> bool:
+        return not self._jobs.empty()
 
     def _run(self) -> None:
         import asyncio
@@ -110,8 +114,9 @@ class CosysScreen:
             self._move(self.park)
             off_ms = time.time_ns() // 1_000_000
             self.n += 1
-            self.log.row([self.n, zone.index, zone.label, dur_ms, on_ms, off_ms, off_ms - on_ms],
-                         sync=True)
+            if self.log is not None and zone is not None:
+                self.log.row([self.n, zone.index, zone.label, dur_ms, on_ms, off_ms, off_ms - on_ms],
+                             sync=True)
 
     def _drone(self) -> list[float]:
         p = self.client.simGetVehiclePose("Drone0").position
