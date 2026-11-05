@@ -49,8 +49,11 @@ rsync -a --exclude Saved --exclude Intermediate --exclude DerivedDataCache ~/Des
 ```
 
 и на новом компьютере — обратно в `~/Desktop/New_Karta_Vitali`. В этой папке уже есть всё:
-карта `FlyingExampleMap` с воротами и зонами затемнения и плагин AirSim с наложенными
-патчами `airsim_patches/01–06` (`-a` сохраняет права и даты).
+три карты уровней сложности (`FlyingExampleMap` — сложный, `Track_Medium`, `Track_Easy` в
+`Content/FlyingCPP/Maps/`) с воротами и зонами затемнения и плагин AirSim с наложенными
+патчами `airsim_patches/01–06` (`-a` сохраняет права и даты). Если копировали проект раньше,
+чем появились уровни, — либо докопировать два файла `Track_*.umap`, либо после шага 3
+выполнить `python -m multiuav track variants`.
 
 Собрать C++-часть проекта и плагина под свой движок (3–5 минут, в конце `Result: Succeeded`):
 

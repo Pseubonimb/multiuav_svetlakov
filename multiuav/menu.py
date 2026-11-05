@@ -131,6 +131,12 @@ class Menu:
                                                 ("Длительность, мин", self.minutes, 8))):
             ttk.Label(form, text=text).grid(row=r, column=0, sticky="w", **pad)
             ttk.Entry(form, textvariable=var, width=width).grid(row=r, column=1, sticky="w", **pad)
+        self.levels = {k: v["title"] for k, v in self.cfg.get("levels", {}).items()}
+        self.level = tk.StringVar(value=self.levels.get(self.cfg.get("level", "hard"), ""))
+        ttk.Label(form, text="Уровень сложности").grid(row=7, column=0, sticky="w", **pad)
+        ttk.Combobox(form, textvariable=self.level, values=list(self.levels.values()),
+                     state="readonly", width=44).grid(row=7, column=1, sticky="w", **pad)
+        self.level.trace_add("write", lambda *_: self._on_level())
         self.directions = self._directions()
         self.direction = tk.StringVar(value=self.directions.get(self.cfg.get("direction", "cw"), ""))
         ttk.Label(form, text="Направление по трассе").grid(row=6, column=0, sticky="w", **pad)
@@ -275,6 +281,19 @@ class Menu:
 
     # ---------------------------------------------------------------- кнопки
 
+    def _level_key(self) -> str:
+        return next((k for k, v in self.levels.items() if v == self.level.get()),
+                    self.cfg.get("level", "hard"))
+
+    def _on_level(self) -> None:
+        """Сменили уровень — своя карта и свой файл ворот и зон (и число зон в подписи)."""
+        from .experiment import apply_level
+
+        key = next((k for k, v in self.directions.items() if v == self.direction.get()), "cw")
+        self.cfg = apply_level(self.cfg, self._level_key())
+        self.directions = self._directions()
+        self.direction.set(self.directions.get(key, ""))
+
     def _directions(self) -> dict[str, str]:
         """cw/ccw → подпись из файла трассы (и сколько там зон)."""
         try:
@@ -328,6 +347,7 @@ class Menu:
                "occlusion_color": self.color, "occlusion_image": image, "camera_tilt_deg": tilt,
                "direction": next((k for k, v in self.directions.items() if v == self.direction.get()),
                                  "cw"),
+               "level": self._level_key(),
                "duration_s": round(minutes * 60), "out": str(self.attempt)}
         write_json(self.attempt / "experiment.json", cfg)
         self.say(f"Старт: {self.attempt.relative_to(REPO)}")

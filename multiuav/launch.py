@@ -85,7 +85,7 @@ def apply_occlusion_look(cfg: dict) -> bool:
     engine = Path(os.path.expanduser(cfg["engine"]))
     cmd_tool = engine.with_name("UnrealEditor-Cmd")
     script = Path(__file__).resolve().parent.parent / "tools" / "unreal" / "friday_track.py"
-    args = f"{script} --occlusion-only --color {color} --out {track_file.resolve()}"
+    args = f"{script} --occlusion-only --color {color} --map {cfg['map']} --out {track_file.resolve()}"
     if image:
         args += f" --image '{image}'"
     out = Path(cfg["out"]) / "occlusion_apply.log"

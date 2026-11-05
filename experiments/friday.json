@@ -12,6 +12,24 @@
   "camera_tilt_deg": 20,
   "duration_s": 1800,
   "direction": "cw",
+  "level": "hard",
+  "levels": {
+    "easy": {
+      "title": "Лёгкий — плоский пролёт по коридору",
+      "map": "/Game/FlyingCPP/Maps/Track_Easy",
+      "track": "maps/Track_Easy.json"
+    },
+    "medium": {
+      "title": "Средний — полёт с разными уровнями высоты",
+      "map": "/Game/FlyingCPP/Maps/Track_Medium",
+      "track": "maps/Track_Medium.json"
+    },
+    "hard": {
+      "title": "Сложный — разные уровни высоты и препятствия",
+      "map": "/Game/FlyingCPP/Maps/FlyingExampleMap",
+      "track": "maps/FlyingExampleMap.json"
+    }
+  },
   "task": "30 минут летите по трассе, стараясь не касаться стен. Старайтесь пролетать ворота через центр. Каждый раз, когда пролетаете ворота, нажмите кнопку SE — и когда экран погас, и когда он виден.",
   "scenario": "scenarios/friday_trial.yaml",
   "mode": "acro",

@@ -63,7 +63,16 @@ def parse_occlusion(text: str | list) -> list[int]:
 
 
 def load_config(path: str | Path = DEFAULT_CONFIG) -> dict:
-    return json.loads(Path(path).read_text(encoding="utf-8"))
+    return apply_level(json.loads(Path(path).read_text(encoding="utf-8")))
+
+
+def apply_level(cfg: dict, level: str | None = None) -> dict:
+    """Уровень сложности (easy/medium/hard) → свои "map" и "track" из cfg["levels"]."""
+    levels = cfg.get("levels") or {}
+    level = level or cfg.get("level")
+    if level and level in levels:
+        cfg = {**cfg, "level": level, "map": levels[level]["map"], "track": levels[level]["track"]}
+    return cfg
 
 
 def write_json(path: Path, data: dict) -> None:

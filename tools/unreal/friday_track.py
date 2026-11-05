@@ -300,6 +300,7 @@ def place_gate(label, center, yaw_deg, frame_mat, dot_mat):
 
 
 def main(argv):
+    global MAP
     p = argparse.ArgumentParser()
     p.add_argument("--color", default="#969696",
                    help="цвет затемнения, как на экране: #RRGGBB (по умолчанию серый 150 — "
@@ -310,8 +311,11 @@ def main(argv):
     p.add_argument("--export-only", action="store_true",
                    help="ничего не создавать: выгрузить ворота MU_GateNN и зоны там, где они "
                         "сейчас стоят (после того как их передвинули в редакторе)")
-    p.add_argument("--out", default=os.path.join(REPO, "maps", "FlyingExampleMap.json"))
+    p.add_argument("--map", default=MAP, help="карта (уровень сложности): /Game/FlyingCPP/Maps/…")
+    p.add_argument("--out", help="файл трассы (по умолчанию maps/<имя карты>.json)")
     args = p.parse_args(argv)
+    MAP = args.map
+    args.out = args.out or os.path.join(REPO, "maps", MAP.rsplit("/", 1)[-1] + ".json")
 
     world = unreal.get_editor_subsystem(unreal.UnrealEditorSubsystem).get_editor_world()
     if not world or world.get_path_name().split(".")[0] != MAP:

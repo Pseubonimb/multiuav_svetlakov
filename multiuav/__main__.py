@@ -180,71 +180,87 @@ def cmd_analyze(args) -> None:
 
 
 def cmd_track(args) -> None:
-    """Ворота и зоны карты: открыть в редакторе, выгрузить после правки, поставить заново."""
+    """Ворота и зоны карты: открыть в редакторе, выгрузить после правки, поставить заново,
+    эталон, уровни сложности."""
     import os
+    import shutil
     import subprocess
 
-    from .experiment import load_config
+    from .experiment import apply_level, load_config
     from .launch import _game_env, port_open
 
-    cfg = load_config(args.config)
+    cfg = apply_level(load_config(args.config), args.level)
     engine = Path(os.path.expanduser(cfg["engine"]))
     project = os.path.expanduser(cfg["project"])
-    script = Path(__file__).resolve().parent.parent / "tools" / "unreal" / "friday_track.py"
+    tools_dir = Path(__file__).resolve().parent.parent / "tools" / "unreal"
     if args.action == "edit":
-        print("Открываю редактор на карте. Ворота — точки MU_Gate01…05 в папке MultiUAV/Gates "
-              "(двигать W, поворачивать E — рамка идёт за точкой); зоны — TriggerBox… "
-              "(двигать W, растягивать R). Потом Ctrl+S, закрыть редактор и: "
-              "python -m multiuav track export")
+        print(f"Открываю редактор на карте {cfg['map']}. Ворота — точки MU_GateCW…/MU_GateCCW… в "
+              "папке MultiUAV/Gates (двигать W, поворачивать E — рамка идёт за точкой); зоны — "
+              "TriggerBox… (двигать W, растягивать R). Потом Ctrl+S, закрыть редактор и: "
+              "python -m multiuav track export" + (f" --level {args.level}" if args.level else ""))
         subprocess.Popen([str(engine), project, cfg["map"]], env=_game_env(), start_new_session=True)
         return
+    if port_open():
+        raise SystemExit("Сначала сохраните карту (Ctrl+S) и закройте редактор/игру")
     if args.action in ("save", "restore"):
-        import shutil
-
         umap = Path(project).parent / "Content" / (cfg["map"].replace("/Game/", "") + ".umap")
         base = Path(os.path.expanduser(cfg.get("track_baseline", "~/Desktop/New_Karta_Vitali_baseline")))
-        if port_open():
-            raise SystemExit("Сначала сохраните карту (Ctrl+S) и закройте редактор/игру")
         if args.action == "save":
             base.mkdir(parents=True, exist_ok=True)
             shutil.copy2(umap, base / umap.name)
             shutil.copy2(cfg["track"], base / Path(cfg["track"]).name)
-            print(f"Эталон сохранён: {base} (карта и {Path(cfg['track']).name})")
+            print(f"Эталон сохранён: {base} ({umap.name} и {Path(cfg['track']).name})")
         else:
             if not (base / umap.name).exists():
-                raise SystemExit(f"Нет эталона в {base}: сначала python -m multiuav track save")
+                raise SystemExit(f"Нет эталона {umap.name} в {base}: сначала python -m multiuav track save")
             shutil.copy2(base / umap.name, umap)
             shutil.copy2(base / Path(cfg["track"]).name, cfg["track"])
             print(f"Эталон возвращён из {base}")
         return
-    if port_open():
-        raise SystemExit("Открыт редактор или игра — сохраните карту (Ctrl+S), закройте их и повторите")
-    extra = "--export-only" if args.action == "export" else f"--color {cfg.get('occlusion_color', '#969696')}"
-    print("Unreal без окна, ~20–40 с…", flush=True)
-    log = Path("runs") / f"track_{args.action}.log"
-    log.parent.mkdir(exist_ok=True)
-    with open(log, "w", encoding="utf-8") as f:
-        code = subprocess.call([str(engine.with_name("UnrealEditor-Cmd")), project, "-run=pythonscript",
-                                f"-script={script} {extra}", "-nullrhi", "-unattended", "-nosplash",
-                                "-nop4"], stdout=f, stderr=subprocess.STDOUT)
-    text = log.read_text(encoding="utf-8", errors="replace")
-    errors = [ln for ln in text.splitlines() if "LogPython: Error" in ln]
-    # Код 1 бывает и при успехе: Unreal ругается на старый Level Blueprint Виталия.
-    if errors or "Python script executed successfully" not in text:
-        print("\n".join(dict.fromkeys(errors)))
-        raise SystemExit(f"Не получилось (код {code}), лог: {log}")
-    data = json.loads(Path(cfg["track"]).read_text(encoding="utf-8"))
-    print(f"Записано {cfg['track']}:")
-    for d in data.get("directions", {}).values():
-        print(f" {d['title']}:")
-        for g in d["gates"]:
-            c = g["center"]
-            print(f"  {g['name']}: север {c['north']:.1f}, восток {c['east']:.1f}, "
-                  f"высота {c['alt']:.1f} м, курс {g['heading_deg']:.0f}°")
-    for z in data["zones"]:
-        c, h = z["center"], z["half_size"]
-        print(f"  зона {z['index'] + 1} ({z['label']}): центр {c['north']:.1f}, {c['east']:.1f}; "
-              f"размер {2 * h['north']:.1f} × {2 * h['east']:.1f} × {2 * h['up']:.1f} м")
+
+    def unreal_script(script: str, extra: str, name: str) -> None:
+        print(f"Unreal без окна ({name}), ~20–60 с…", flush=True)
+        log = Path("runs") / f"track_{name}.log"
+        log.parent.mkdir(exist_ok=True)
+        with open(log, "w", encoding="utf-8") as f:
+            code = subprocess.call([str(engine.with_name("UnrealEditor-Cmd")), project,
+                                    "-run=pythonscript", f"-script={tools_dir / script} {extra}",
+                                    "-nullrhi", "-unattended", "-nosplash", "-nop4"],
+                                   stdout=f, stderr=subprocess.STDOUT)
+        text = log.read_text(encoding="utf-8", errors="replace")
+        errors = [ln for ln in text.splitlines() if "LogPython: Error" in ln]
+        # Код 1 бывает и при успехе: Unreal ругается на старый Level Blueprint Виталия.
+        if errors or "Python script executed successfully" not in text:
+            print("\n".join(dict.fromkeys(errors)))
+            raise SystemExit(f"Не получилось (код {code}), лог: {log}")
+
+    def summary(level_cfg: dict) -> None:
+        data = json.loads(Path(level_cfg["track"]).read_text(encoding="utf-8"))
+        print(f"Записано {level_cfg['track']} ({level_cfg['map']}): зон {len(data['zones'])}")
+        for d in data.get("directions", {}).values():
+            print(f" {d['title']}:")
+            for g in d["gates"]:
+                c = g["center"]
+                print(f"  {g['name']}: север {c['north']:.1f}, восток {c['east']:.1f}, "
+                      f"высота {c['alt']:.1f} м, курс {g['heading_deg']:.0f}°")
+
+    if args.action == "variants":
+        # Копии карты «сложного» уровня без препятствий / без «многоэтажки», затем их трассы.
+        unreal_script("make_variants.py", "", "variants")
+        for level in ("medium", "easy"):
+            lc = apply_level(load_config(args.config), level)
+            unreal_script("friday_track.py", f"--export-only --map {lc['map']} --out {Path(lc['track']).resolve()}",
+                          f"export_{level}")
+            summary(lc)
+        print("Уровни: easy — Track_Easy, medium — Track_Medium, hard — исходная карта. "
+              "Подробности, что убрано: runs/track_variants.json")
+        return
+    extra = (f"--export-only --map {cfg['map']} --out {Path(cfg['track']).resolve()}"
+             if args.action == "export" else
+             f"--color {cfg.get('occlusion_color', '#969696')} --map {cfg['map']} "
+             f"--out {Path(cfg['track']).resolve()}")
+    unreal_script("friday_track.py", extra, args.action)
+    summary(cfg)
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -352,10 +368,13 @@ def main(argv: list[str] | None = None) -> None:
     analyze.set_defaults(func=cmd_analyze)
 
     track = sub.add_parser("track", help="ворота и зоны карты эксперимента")
-    track.add_argument("action", choices=["edit", "export", "reset", "save", "restore"],
+    track.add_argument("action", choices=["edit", "export", "reset", "save", "restore", "variants"],
                        help="edit — открыть карту в редакторе, export — выгрузить ворота и зоны "
                             "в maps/…json после правки, reset — поставить ворота заново по умолчанию, "
-                            "save — запомнить карту и json как эталон, restore — вернуть эталон")
+                            "save — запомнить карту и json как эталон, restore — вернуть эталон, "
+                            "variants — заново сделать лёгкий и средний уровни из сложного")
+    track.add_argument("--level", choices=["easy", "medium", "hard"],
+                       help="уровень сложности (по умолчанию — из experiments/friday.json)")
     track.add_argument("--config", default="experiments/friday.json")
     track.set_defaults(func=cmd_track)
 
