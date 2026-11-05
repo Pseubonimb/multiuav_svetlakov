@@ -18,6 +18,27 @@
 там же, где прошёл ведущий. Это нереалистично (ведомые знают весь путь лидера),
 поэтому для эксперимента сделаны алгоритмы «по зрению», см. ниже.
 
+## Экспериментальный стенд: развернуть на другом компьютере
+
+Один дрон, Acro, трасса Виталия, меню «Эксперимент БПЛА». Полная пошаговая инструкция —
+[docs/DEPLOY_STAND.md](docs/DEPLOY_STAND.md). Коротко:
+
+1. Ubuntu 22.04 (сеанс Xorg), драйвер NVIDIA, Unreal Engine 5.8 в `~/Downloads/UnrealEngine5`,
+   UBA отключён (`BuildConfiguration.xml`).
+2. Скопировать с ноутбука проект `~/Desktop/New_Karta_Vitali` (без `Saved`, `Intermediate`,
+   `DerivedDataCache`) и собрать:
+   `~/Downloads/UnrealEngine5/Engine/Build/BatchFiles/Linux/Build.sh BlocksEditor Linux Development -Project="$HOME/Desktop/New_Karta_Vitali/Blocks.uproject"`.
+3. Программа и **все модули Python в `.venv`** (пульт читает модуль `evdev` из `pip`,
+   `apt install evtest` — другая программа):
+   ```bash
+   sudo apt install git python3-venv python3-tk python3-dev gcc
+   git clone -b friday-trial https://github.com/Pseubonimb/multiuav_svetlakov.git ~/Documents/multiuav_svetlakov
+   cd ~/Documents/multiuav_svetlakov && python3 -m venv .venv && .venv/bin/pip install -e ".[cosys,gamepad,sticks,plot,dev]"
+   ```
+4. Пульт виден без sudo: `.venv/bin/python -m multiuav sticks list` (нет — `sudo usermod -aG input $USER` и перезайти).
+5. Один раз открыть карту в редакторе (компиляция шейдеров), `python -m multiuav track save`
+   (эталон ворот), `scripts/install_launcher.sh` (значок), пробная попытка из меню.
+
 ## Быстрый старт без Unreal
 
 ```bash
