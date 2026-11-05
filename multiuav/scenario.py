@@ -103,6 +103,12 @@ class Scenario:
     # (0, как в исходном AirSim) дрон скользит, как по льду. Нужен патч плагина 04. В kinematic
     # похожее сопротивление есть всегда (drag 0.35 1/с ≈ k 0.036 на висении).
     rotor_drag: float = 0.0
+    # Сопротивление воздуха, добавляемое самим MultiUAV, 1/с: к наклону каждого дрона
+    # прибавляется наклон, дающий ускорение -air_drag * скорость (по горизонтали). Это
+    # физика мира, а не датчик дрона: алгоритмы свою скорость по-прежнему не получают.
+    # Для сцен без патча 04 (готовая сборка Blocks), где дрон «скользит, как по льду».
+    # 0 — выключено. В kinematic не нужно: там сопротивление есть всегда (drag 0.35).
+    air_drag: float = 0.0
 
     def start_positions(self) -> list[np.ndarray]:
         """Стартовые точки NED: ведущий впереди, остальные колонной позади него."""
@@ -162,4 +168,5 @@ class Scenario:
             model=str(data.get("model", "generic")).lower(),
             rate_gains=_rate_gains(data.get("rate_gains")),
             rotor_drag=float(data.get("rotor_drag", 0.0)),
+            air_drag=float(data.get("air_drag", 0.0)),
         )

@@ -13,6 +13,7 @@ import importlib.util
 from pathlib import Path
 
 from .base import FollowerAlgorithm
+from .corner_follow import CornerFollow
 from .leader_path import LeaderPath
 from .line_follow import LineFollow
 from .single_file import SingleFile
@@ -26,6 +27,7 @@ BUILTIN: dict[str, type[FollowerAlgorithm]] = {
     "line_follow": LineFollow,
     "waypoints": WaypointPilot,
     "stop_and_go": StopAndGoPilot,
+    "corner_follow": CornerFollow,
     "visual_follow": VisualFollow,
     "flock": Flock,
 }
@@ -63,5 +65,5 @@ def load_algorithm(name: str) -> type[FollowerAlgorithm]:
     return cls
 
 
-__all__ = ["BUILTIN", "Flock", "FollowerAlgorithm", "LeaderPath", "SingleFile", "VisualFollow",
-           "WaypointPilot", "load_algorithm"]
+__all__ = ["BUILTIN", "CornerFollow", "Flock", "FollowerAlgorithm", "LeaderPath", "SingleFile",
+           "VisualFollow", "WaypointPilot", "load_algorithm"]

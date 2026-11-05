@@ -45,6 +45,8 @@ def _load(args) -> Scenario:
         sc.leader = AlgorithmSpec(args.leader, sc.leader.params)
     if getattr(args, "mode", None):
         sc.leader = AlgorithmSpec(sc.leader.name, {**sc.leader.params, "mode": args.mode})
+    if getattr(args, "air_drag", None) is not None:
+        sc.air_drag = args.air_drag
     return sc
 
 
@@ -165,6 +167,8 @@ def main(argv: list[str] | None = None) -> None:
     run.add_argument("--leader", help="кто ведёт: waypoints, gamepad или свой алгоритм")
     run.add_argument("--out", help="папка для журнала прогона")
     run.add_argument("--plot", help="сохранить картинку траекторий (PNG)")
+    run.add_argument("--air-drag", type=float, dest="air_drag",
+                     help="сопротивление воздуха от MultiUAV, 1/с (0.35 — для сцены без патча 04)")
     run.set_defaults(func=cmd_run)
 
     compare = sub.add_parser("compare", help="сравнить алгоритмы в упрощённом симуляторе")

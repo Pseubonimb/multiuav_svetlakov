@@ -8,12 +8,17 @@ import time
 from dataclasses import dataclass, field
 from pathlib import Path
 
+import math
+
+import numpy as np
+
 from .algorithms import FollowerAlgorithm, load_algorithm
 from .backends.base import SimBackend
 from .keyboard import Keyboard
 from .perception import Observer
 from .scenario import Scenario
-from .types import DroneState, RcOverride
+from .control import G
+from .types import ALTHOLD, DroneState, RcOverride
 
 
 #: Клавиша посадки ведомых: L, в русской раскладке — та же клавиша «Д».
@@ -117,8 +122,8 @@ class SwarmManager:
                     else:
                         others = [s for s in states if s.id != state.id]
                         rc = self.algorithms[state.id].step(state, others, leader, t)
-                    self.backend.send(state.id, rc)
                     sent[state.id] = rc
+                    self.backend.send(state.id, self._air_drag(state, rc))
                 self._record(result, states, t, sent)
                 self.backend.advance(dt)
                 t += dt
@@ -132,6 +137,27 @@ class SwarmManager:
             self.backend.close()
         result.sim_time = t
         return result
+
+    def _air_drag(self, state: DroneState, rc: RcOverride) -> RcOverride:
+        """Сопротивление воздуха для сцен, где его нет (air_drag > 0, только AltHold).
+        В AltHold наклон θ даёт ускорение g·tan θ; добавляем к нему -c·v в осях дрона:
+        tan θ' = tan θ - c·v / g. Скорость — истинная, из симулятора: это часть физики
+        мира, алгоритм её не видит. В журнал пишется команда алгоритма, без добавки."""
+        c = self.scenario.air_drag
+        if c <= 0.0 or rc.mode != ALTHOLD:
+            return rc
+        lim = self.scenario.limits
+        vn, ve = float(state.velocity[0]), float(state.velocity[1])
+        cy, sy = math.cos(state.yaw), math.sin(state.yaw)
+        v_fwd, v_right = vn * cy + ve * sy, -vn * sy + ve * cy
+        roll, pitch, throttle, yaw = rc.normalized()
+
+        def add(axis: float, v: float) -> float:
+            tilt = math.atan(math.tan(axis * lim.max_tilt) - c * v / G)
+            return float(np.clip(tilt / lim.max_tilt, -1.0, 1.0))
+
+        return RcOverride.from_normalized(add(roll, v_right), add(pitch, v_fwd),
+                                          throttle, yaw, rc.mode)
 
     def toggle_landing(self) -> None:
         """Посадить ведомых «по зрению» или поднять их обратно (клавиша L)."""
