@@ -63,7 +63,14 @@ def parse_occlusion(text: str | list) -> list[int]:
 
 
 def load_config(path: str | Path = DEFAULT_CONFIG) -> dict:
-    return apply_level(json.loads(Path(path).read_text(encoding="utf-8")))
+    """Параметры эксперимента; рядом может лежать local.json — настройки этого компьютера
+    (пути к движку и проекту, адрес сервера времени). Он не в git и перекрывает основной файл."""
+    path = Path(path)
+    cfg = json.loads(path.read_text(encoding="utf-8"))
+    local = path.with_name("local.json")
+    if local.exists() and local != path:
+        cfg.update(json.loads(local.read_text(encoding="utf-8")))
+    return apply_level(cfg)
 
 
 def apply_level(cfg: dict, level: str | None = None) -> dict:

@@ -216,3 +216,14 @@ def test_reset_goes_to_gate_flown_over(tmp_path):
     assert list(pos) == [0, 70, 5] and heading == pytest.approx(np.pi / 2)
     rows = _rows(tmp_path / "resets.csv")
     assert rows[0]["gate_name"] == "G1" and rows[0]["source"] == "клавиша R"
+
+
+def test_chrony_tracking_parse():
+    from multiuav.clocksync import parse_tracking
+
+    line = ("C0A80A01,192.168.10.1,4,1793800000.123456789,0.000000840,-0.000001200,0.000003500,"
+            "-12.345,0.001,0.050,0.130000000,7.800000000,64.2,Normal")
+    t = parse_tracking(line)
+    assert t["ref_name"] == "192.168.10.1" and t["stratum"] == 4
+    assert t["system_time_s"] == pytest.approx(8.4e-7) and t["leap_status"] == "Normal"
+    assert t["root_dispersion_s"] == pytest.approx(7.8)

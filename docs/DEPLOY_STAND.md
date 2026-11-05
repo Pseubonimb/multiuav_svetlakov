@@ -141,11 +141,18 @@ __NV_PRIME_RENDER_OFFLOAD=1 __GLX_VENDOR_LIBRARY_NAME=nvidia ~/Downloads/UnrealE
 на рабочий стол и в меню приложений. Если значок с крестиком — правой кнопкой →
 **«Разрешить запуск»**.
 
-Если движок или проект лежат не там, где на ноутбуке, — поправить пути в
-`experiments/friday.json`:
+Если движок или проект лежат не там, где на ноутбуке, — записать свои пути в
+`experiments/local.json` (настройки этого компьютера: git его не видит, `git pull` ему не
+мешает; значения перекрывают `experiments/friday.json`). Образец — `experiments/local.example.json`:
+```bash
+cp experiments/local.example.json experiments/local.json && nano experiments/local.json
+```
 ```json
-"project": "~/Desktop/New_Karta_Vitali/Blocks.uproject",
-"engine": "~/Downloads/UnrealEngine5/Engine/Binaries/Linux/UnrealEditor",
+{
+  "engine": "~/Documents/UnrealEngine5/Engine/Binaries/Linux/UnrealEditor",
+  "project": "~/Desktop/New_Karta_Vitali/Blocks.uproject",
+  "time_server": "192.168.10.1"
+}
 ```
 
 ## 8. Проверка всего цикла
@@ -182,3 +189,104 @@ __NV_PRIME_RENDER_OFFLOAD=1 __GLX_VENDOR_LIBRARY_NAME=nvidia ~/Downloads/UnrealE
 | сборка висит на 1 % | UBA | шаг 1.2 |
 | дрон на старте носом не туда / ворота «не те» | выбрано не то направление | поле «Направление по трассе» в меню |
 | ворота сбились после правки карты | — | `.venv/bin/python -m multiuav track restore` |
+
+## 10. Общее время с компьютером датчиков (Windows: айтрекер, пульсометр)
+
+Записи симулятора (`pc_time_ms`, `t_ms` в `sticks.csv` и `buttons.csv`) и записи датчиков
+склеиваются по часам компьютеров, поэтому часы Ubuntu должны идти по часам Windows.
+Схема: Windows — сервер времени (NTP), Ubuntu постоянно сверяется с ней по кабелю службой
+`chrony`. Проверено 05.11.2026: Ubuntu расходится с Windows на доли микросекунды по оценке
+`chrony`; на деле точность ограничивает служба времени Windows — обычно меньше 1 мс.
+
+### Windows (всё — от администратора)
+
+1. Включить сервер времени — скрипт научрука `time.bat` (правой кнопкой → «Запуск от имени
+   администратора»). Он включает в Windows NTP-сервер и сверяет саму Windows с `pool.ntp.org`.
+2. Пустить запросы времени через брандмауэр (UDP, порт 123) — в `time.bat` этого нет:
+   ```
+   netsh advfirewall firewall add rule name="NTP Server" dir=in action=allow protocol=UDP localport=123
+   ```
+   Проверить: `netsh advfirewall firewall show rule name="NTP Server"`.
+3. Кабель напрямую, без роутера: в свойствах адаптера Ethernet → IPv4 вручную:
+   адрес `192.168.10.1`, маска `255.255.255.0`, шлюз пустой.
+4. Если у Windows нет интернета, её служба времени может считать себя «ненадёжной»
+   (`w32tm /query /status` → «не синхронизировано»), и Ubuntu её отвергнет. Тогда:
+   ```
+   w32tm /config /manualpeerlist:"" /syncfromflags:NO /reliable:YES /update
+   ```
+   ```
+   net stop w32time && net start w32time
+   ```
+
+### Ubuntu
+
+1. Имя порта Ethernet (у компьютера центра — `enp4s0`, маленькими буквами):
+   ```bash
+   nmcli device status
+   ```
+2. Ручной адрес на этом порту; интернет остаётся через Wi-Fi (`ipv4.never-default yes`).
+   Свойство — `ifname`, не «iframe»:
+   ```bash
+   sudo nmcli con add type ethernet ifname enp4s0 con-name timelink ipv4.method manual ipv4.addresses 192.168.10.2/24 ipv4.never-default yes
+   ```
+   `/24` — маска `255.255.255.0`: оба компьютера в сети `192.168.10.…`. Проверка: `ping -c 3 192.168.10.1`.
+3. Выключить автосверку времени самой Ubuntu (иначе она сверяется с `ntp.ubuntu.com` и
+   спорит с Windows) и поставить `chrony`:
+   ```bash
+   sudo timedatectl set-ntp false
+   ```
+   ```bash
+   sudo apt install chrony
+   ```
+4. Конфиг — правка только через `sudo` (файлы в `/etc` принадлежат root):
+   ```bash
+   sudo cp /etc/chrony/chrony.conf /etc/chrony/chrony.conf.bak
+   ```
+   ```bash
+   sudo nano /etc/chrony/chrony.conf
+   ```
+   - закомментировать (`#`) строки `pool …`;
+   - добавить в конец:
+     ```
+     server 192.168.10.1 iburst minpoll 4 maxpoll 6
+     maxdistance 16
+     ```
+     `iburst` — при старте 4 быстрых запроса; `minpoll 4`/`maxpoll 6` — спрашивать раз в
+     2⁴ = 16 … 2⁶ = 64 с; `maxdistance 16` — **обязательно для Windows**: её служба сообщает
+     о себе огромную погрешность (`Root dispersion` ≈ 7,8 с), а chrony по умолчанию не
+     принимает источники хуже 3 с и ставит им `^?`.
+   - сохранить (Ctrl+O, Enter), выйти (Ctrl+X), применить:
+     ```bash
+     sudo systemctl restart chrony
+     ```
+5. Проверить через полминуты:
+   ```bash
+   chronyc sources
+   ```
+   у `192.168.10.1` должно стоять **`^*`** (`^?` — источник не принят, см. ниже);
+   ```bash
+   chronyc tracking
+   ```
+   `Reference ID` — `192.168.10.1`, `System time` — расхождение (доли миллисекунды),
+   `Leap status: Normal`.
+6. Адрес сервера времени — в `experiments/local.json`: `"time_server": "192.168.10.1"`.
+   Тогда каждая попытка записывает в `experiment.json` → `clock_sync` снимок `chronyc
+   tracking` в начале и в конце (расхождение, источник, состояние), а меню предупреждает,
+   если часы не сверены или расходятся больше чем на 2 мс.
+
+### Перед каждой попыткой и во время неё
+
+- `chrony` включается сам при загрузке; Windows и кабель должны быть включены, иначе
+  часы Ubuntu постепенно уйдут;
+- во время попытки не запускать `ntpdate` и не менять настройки: часы могут прыгнуть, а
+  `pc_time_ms` в журналах — это часы компьютера.
+
+### Если `^?`
+
+| Проверка | Команда | Что видно |
+|---|---|---|
+| ответы от Windows | `sudo chronyc ntpdata 192.168.10.1` | `Total RX 0` — брандмауэр (Windows, шаг 2) или служба времени не включена (шаг 1) |
+| часы Windows надёжны | там же, `Leap status`, `Stratum` | `Not synchronised` или `Stratum 16` — Windows, шаг 4 |
+| погрешность | там же, `Root dispersion` | больше 3 с — нет `maxdistance 16` (Ubuntu, шаг 4) |
+| `501 Not authorised` | — | `chronyc ntpdata` только с `sudo` |
+

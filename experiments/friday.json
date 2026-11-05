@@ -45,5 +45,6 @@
   "edgetx_profile": "не указан",
   "adc_filter": "unknown",
   "reset_key": "r",
-  "unreal_timeout_s": 180
+  "unreal_timeout_s": 180,
+  "time_server": ""
 }

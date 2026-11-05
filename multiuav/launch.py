@@ -132,8 +132,15 @@ def run_launch(config: Path, participant: str | None = None, backend_name: str =
     cfg["started"] = local_time(cfg["started_ms"])
     cfg["finished"] = cfg["finished_ms"] = None
     cfg["stopped_by"] = None
+    from .clocksync import snapshot
+
+    server = cfg.get("time_server") or None
+    clock = snapshot(server)
+    cfg["clock_sync"] = {"server": server, "start": clock, "end": None}
     write_json(out / "experiment.json", cfg)
     status(f"попытка {cfg.get('participant')}: {out}")
+    if server or clock.get("ref_name"):
+        status(clock["text"] if clock["ok"] else "ВНИМАНИЕ, " + clock["text"])
 
     stop = threading.Event()
     resets = {"menu": 0}
@@ -257,6 +264,7 @@ def run_launch(config: Path, participant: str | None = None, backend_name: str =
             stop_process(game, "игра", signal.SIGTERM, 10)
         cfg["finished_ms"] = time.time_ns() // 1_000_000
         cfg["finished"] = local_time(cfg["finished_ms"])
+        cfg["clock_sync"]["end"] = snapshot(server)
         cfg["stopped_by"] = (recorder.stopped_by if recorder and recorder.stopped_by
                              else result.get("error", ""))
         write_json(out / "experiment.json", cfg)

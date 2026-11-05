@@ -495,6 +495,17 @@
   ничего; ворота во всех трёх картах на тех же местах. Команда: `python -m multiuav track
   variants` (копии каждый раз заново из сложной карты — править только её). В меню —
   «Уровень сложности» (`level`, `levels` в `experiments/friday.json`); `track … --level easy|medium|hard`.
+- **Общее время с компьютером датчиков (05.11, компьютер центра):** Windows — NTP-сервер
+  (`time.bat` научрука + правило брандмауэра UDP 123), кабель напрямую (`192.168.10.1` /
+  `192.168.10.2`, `/24`), на Ubuntu — `chrony` вместо `ntpdate`: сверяется постоянно и плавно,
+  без скачков `pc_time_ms` посреди попытки. `sudo ntpdate pool.ntp.org` из первого плана
+  сверял бы Ubuntu с интернетом, а не с Windows. Грабли: `nmcli … ifname` (не «iframe»),
+  имя порта маленькими буквами; `chronyc ntpdata` — только с `sudo`; Windows сообщает
+  `Root dispersion` ≈ 7,8 с, и chrony без `maxdistance 16` отвергает её (`^?`). Итог:
+  `^*`, `System time` 0,84 мкс. Каждая попытка пишет снимок `chronyc tracking` в начале и
+  в конце (`clock_sync` в `experiment.json`, адрес — `time_server`). Настройки компьютера
+  (пути, сервер времени) — в `experiments/local.json` (не в git). Пошагово —
+  `docs/DEPLOY_STAND.md`, раздел 10.
 - Не проверено к утру 04.11: полёт с пульта на весь экран (`-fullscreen`) и SE в настоящем
   полёте — см. живую проверку.
 
