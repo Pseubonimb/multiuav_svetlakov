@@ -68,35 +68,37 @@ def unreal_command(cfg: dict) -> list[str]:
     return cmd
 
 
+#: Какой цвет/картинка затемнения сейчас в материале карты (он один на все уровни). Свой
+#: на каждом компьютере, в git не попадает.
+OCCLUSION_STATE = Path("maps/occlusion_applied.json")
+
+
 def apply_occlusion_look(cfg: dict) -> bool:
     """Цвет или картинка затемнения поменялись — записать их в карту (Unreal без окна, ~20 с).
 
     Возвращает True, если карту пришлось менять.
     """
-    track_file = Path(cfg["track"])
-    current = json.loads(track_file.read_text(encoding="utf-8")).get("occlusion", {})
-    color = str(cfg.get("occlusion_color") or current.get("color") or "#969696").lower()
+    current = json.loads(OCCLUSION_STATE.read_text(encoding="utf-8")) if OCCLUSION_STATE.exists() else {}
+    color = str(cfg.get("occlusion_color") or "#969696").lower()
     image = os.path.abspath(os.path.expanduser(cfg["occlusion_image"])) if cfg.get("occlusion_image") else None
     if image and not Path(image).exists():
         raise RuntimeError(f"нет картинки затемнения {image}")
-    if color == str(current.get("color", "")).lower() and image == current.get("image"):
+    if color == current.get("color") and image == current.get("image"):
         return False
     status("применяю цвет/картинку затемнения к карте (Unreal без окна, ~20 с)")
     engine = Path(os.path.expanduser(cfg["engine"]))
-    cmd_tool = engine.with_name("UnrealEditor-Cmd")
     script = Path(__file__).resolve().parent.parent / "tools" / "unreal" / "friday_track.py"
-    args = f"{script} --occlusion-only --color {color} --map {cfg['map']} --out {track_file.resolve()}"
+    args = f"{script} --occlusion-only --color {color} --map {cfg['map']}"
     if image:
         args += f" --image '{image}'"
     out = Path(cfg["out"]) / "occlusion_apply.log"
     with open(out, "w", encoding="utf-8") as log:
-        code = subprocess.call([str(cmd_tool), os.path.expanduser(cfg["project"]), "-run=pythonscript",
-                                f"-script={args}", "-nullrhi", "-unattended", "-nosplash", "-nop4"],
-                               stdout=log, stderr=subprocess.STDOUT)
-    current = json.loads(track_file.read_text(encoding="utf-8")).get("occlusion", {})
-    ok = "Python script executed successfully" in out.read_text(encoding="utf-8", errors="replace")
-    if not ok or str(current.get("color", "")).lower() != color:
+        subprocess.call([str(engine.with_name("UnrealEditor-Cmd")), os.path.expanduser(cfg["project"]),
+                         "-run=pythonscript", f"-script={args}", "-nullrhi", "-unattended", "-nosplash",
+                         "-nop4"], stdout=log, stderr=subprocess.STDOUT)
+    if "Python script executed successfully" not in out.read_text(encoding="utf-8", errors="replace"):
         raise RuntimeError(f"не удалось применить затемнение к карте, см. {out}")
+    write_json(OCCLUSION_STATE, {"color": color, "image": image})
     return True
 
 

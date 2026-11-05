@@ -344,11 +344,6 @@ def main(argv):
         mi = occlusion_material(color_srgb, image, rebuild=not args.occlusion_only)
         occlusion = {"color": "#" + color.lower(), "image": image or None}
     if args.occlusion_only:
-        # только поправить цвет в уже выгруженном файле
-        data = json.loads(open(args.out, encoding="utf-8").read())
-        data["occlusion"].update(occlusion)
-        with open(args.out, "w", encoding="utf-8") as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
         log(f"затемнение: {occlusion}")
         return
     if args.export_only:

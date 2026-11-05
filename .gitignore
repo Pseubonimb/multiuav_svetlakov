@@ -11,3 +11,5 @@ for_cogni/
 log.txt/
 corner.png
 drone_physics_report.md
+# цвет/картинка затемнения, применённые на этом компьютере (multiuav/launch.py)
+maps/occlusion_applied.json
