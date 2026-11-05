@@ -45,7 +45,8 @@ class PultWatcher:
         try:
             import evdev
         except ImportError:
-            self.error = "нет модуля evdev"
+            self.error = ("нет Python-модуля evdev в .venv: "
+                          ".venv/bin/pip install -e \".[cosys,gamepad,sticks,plot]\"")
             return
         from .sticklog import axes_info, to_us
 
