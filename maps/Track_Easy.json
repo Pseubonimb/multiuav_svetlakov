@@ -3141,10 +3141,10 @@
       8.76
     ],
     [
-      372.54,
-      -20.73,
-      373.54,
-      -10.97
+      372.83,
+      -22.85,
+      373.83,
+      -11.49
     ],
     [
       -25.17,
@@ -3193,7 +3193,7 @@
         {
           "index": 0,
           "name": "MU_Gate01",
-          "actor": "StaticMeshActor_389",
+          "actor": "StaticMeshActor_2",
           "center": {
             "north": 190.0,
             "east": -13.633,
@@ -3206,7 +3206,7 @@
         {
           "index": 1,
           "name": "MU_Gate02",
-          "actor": "StaticMeshActor_394",
+          "actor": "StaticMeshActor_33",
           "center": {
             "north": 363.362,
             "east": 25.0,
@@ -3219,7 +3219,7 @@
         {
           "index": 2,
           "name": "MU_Gate03",
-          "actor": "StaticMeshActor_399",
+          "actor": "StaticMeshActor_42",
           "center": {
             "north": 363.362,
             "east": 276.0,
@@ -3232,7 +3232,7 @@
         {
           "index": 3,
           "name": "MU_Gate04",
-          "actor": "StaticMeshActor_404",
+          "actor": "StaticMeshActor_76",
           "center": {
             "north": 363.362,
             "east": 478.0,
@@ -3245,7 +3245,7 @@
         {
           "index": 4,
           "name": "MU_Gate05",
-          "actor": "StaticMeshActor_459",
+          "actor": "StaticMeshActor_105",
           "center": {
             "north": 243.0,
             "east": 554.232,
@@ -3258,7 +3258,7 @@
         {
           "index": 5,
           "name": "MU_Gate06",
-          "actor": "StaticMeshActor_465",
+          "actor": "StaticMeshActor_178",
           "center": {
             "north": -96.0,
             "east": 554.232,
@@ -3271,7 +3271,7 @@
         {
           "index": 6,
           "name": "MU_Gate07",
-          "actor": "StaticMeshActor_470",
+          "actor": "StaticMeshActor_183",
           "center": {
             "north": -488.0,
             "east": 554.232,
@@ -3284,7 +3284,7 @@
         {
           "index": 7,
           "name": "MU_Gate08",
-          "actor": "StaticMeshActor_475",
+          "actor": "StaticMeshActor_359",
           "center": {
             "north": -546.726,
             "east": 380.0,
@@ -3297,7 +3297,7 @@
         {
           "index": 8,
           "name": "MU_Gate09",
-          "actor": "StaticMeshActor_480",
+          "actor": "StaticMeshActor_364",
           "center": {
             "north": -504.0,
             "east": 200.115,
@@ -3310,7 +3310,7 @@
         {
           "index": 9,
           "name": "MU_Gate10",
-          "actor": "StaticMeshActor_485",
+          "actor": "StaticMeshActor_369",
           "center": {
             "north": -255.0,
             "east": 200.115,
@@ -3323,7 +3323,7 @@
         {
           "index": 10,
           "name": "MU_Gate11",
-          "actor": "StaticMeshActor_490",
+          "actor": "StaticMeshActor_374",
           "center": {
             "north": -30.6,
             "east": 184.0,
@@ -3336,7 +3336,7 @@
         {
           "index": 11,
           "name": "MU_Gate12",
-          "actor": "StaticMeshActor_495",
+          "actor": "StaticMeshActor_379",
           "center": {
             "north": -14.916,
             "east": 47.0,
@@ -3356,7 +3356,7 @@
         {
           "index": 0,
           "name": "MU_Gate12",
-          "actor": "StaticMeshActor_495",
+          "actor": "StaticMeshActor_379",
           "center": {
             "north": -14.916,
             "east": 47.0,
@@ -3369,7 +3369,7 @@
         {
           "index": 1,
           "name": "MU_Gate11",
-          "actor": "StaticMeshActor_490",
+          "actor": "StaticMeshActor_374",
           "center": {
             "north": -30.6,
             "east": 184.0,
@@ -3382,7 +3382,7 @@
         {
           "index": 2,
           "name": "MU_Gate10",
-          "actor": "StaticMeshActor_485",
+          "actor": "StaticMeshActor_369",
           "center": {
             "north": -255.0,
             "east": 200.115,
@@ -3395,7 +3395,7 @@
         {
           "index": 3,
           "name": "MU_Gate09",
-          "actor": "StaticMeshActor_480",
+          "actor": "StaticMeshActor_364",
           "center": {
             "north": -504.0,
             "east": 200.115,
@@ -3408,7 +3408,7 @@
         {
           "index": 4,
           "name": "MU_Gate08",
-          "actor": "StaticMeshActor_475",
+          "actor": "StaticMeshActor_359",
           "center": {
             "north": -546.726,
             "east": 380.0,
@@ -3421,7 +3421,7 @@
         {
           "index": 5,
           "name": "MU_Gate07",
-          "actor": "StaticMeshActor_470",
+          "actor": "StaticMeshActor_183",
           "center": {
             "north": -488.0,
             "east": 554.232,
@@ -3434,7 +3434,7 @@
         {
           "index": 6,
           "name": "MU_Gate06",
-          "actor": "StaticMeshActor_465",
+          "actor": "StaticMeshActor_178",
           "center": {
             "north": -96.0,
             "east": 554.232,
@@ -3447,7 +3447,7 @@
         {
           "index": 7,
           "name": "MU_Gate05",
-          "actor": "StaticMeshActor_459",
+          "actor": "StaticMeshActor_105",
           "center": {
             "north": 243.0,
             "east": 554.232,
@@ -3460,7 +3460,7 @@
         {
           "index": 8,
           "name": "MU_Gate04",
-          "actor": "StaticMeshActor_404",
+          "actor": "StaticMeshActor_76",
           "center": {
             "north": 363.362,
             "east": 478.0,
@@ -3473,7 +3473,7 @@
         {
           "index": 9,
           "name": "MU_Gate03",
-          "actor": "StaticMeshActor_399",
+          "actor": "StaticMeshActor_42",
           "center": {
             "north": 363.362,
             "east": 276.0,
@@ -3486,7 +3486,7 @@
         {
           "index": 10,
           "name": "MU_Gate02",
-          "actor": "StaticMeshActor_394",
+          "actor": "StaticMeshActor_33",
           "center": {
             "north": 363.362,
             "east": 25.0,
@@ -3499,7 +3499,7 @@
         {
           "index": 11,
           "name": "MU_Gate01",
-          "actor": "StaticMeshActor_389",
+          "actor": "StaticMeshActor_2",
           "center": {
             "north": 190.0,
             "east": -13.633,

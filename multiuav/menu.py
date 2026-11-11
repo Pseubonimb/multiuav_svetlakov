@@ -127,7 +127,7 @@ class Menu:
         self.occlusion = tk.StringVar(value=",".join(str(v) for v in self.cfg.get("occlusion_ms", [])))
         self.minutes = tk.StringVar(value=f"{self.cfg.get('duration_s', 1800) / 60:g}")
         for r, (text, var, width) in enumerate((("Код участника", self.code, 16),
-                                                ("Затемнение перед воротами, мс", self.occlusion, 24),
+                                                ("Затемнение перед воротами, мс", self.occlusion, 48),
                                                 ("Длительность, мин", self.minutes, 8))):
             ttk.Label(form, text=text).grid(row=r, column=0, sticky="w", **pad)
             ttk.Entry(form, textvariable=var, width=width).grid(row=r, column=1, sticky="w", **pad)
