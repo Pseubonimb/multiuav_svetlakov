@@ -4,7 +4,7 @@
     "throttle": {
       "code": 2,
       "name": "ABS_Z",
-      "inverted": true
+      "inverted": false
     },
     "yaw": {
       "code": 3,
@@ -20,6 +20,12 @@
       "code": 0,
       "name": "ABS_X",
       "inverted": false
+    }
+  },
+  "buttons": {
+    "SE": {
+      "code": 304,
+      "name": "BTN_A"
     }
   }
 }

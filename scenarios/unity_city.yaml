@@ -1,0 +1,38 @@
+# Полёт над городом, перенесённым из Unity (~/Documents/Polygon_Real_City, скрипты UE5/*.py).
+# Старт — бетонные плиты Start_Position из Unity: это начало координат города, поэтому
+# PlayerStart в UE нужно поставить в Location (0, 0, 100) см.
+# Оси: север = UE X = Unity z, восток = UE Y = Unity x (метры от старта).
+# Дома в городе до 9 этажей (≈ 30 м), поэтому высота 50 м. Ведущий облетает по дорогам
+# кольцо Road_5 (север 150) → Road_2 (восток 160) → Road_6 (север −150) → бульвар Road_1
+# (восток −160) и зависает в финишной зоне над Road_5.
+# Запуск: settings --write -> карта с городом (Play или -game) -> run --backend cosys.
+name: unity_city
+drones: 5
+rate_hz: 20
+duration_s: 260
+
+start:
+  north: 0
+  east: 0
+  altitude: 50
+  heading_deg: 0
+  spacing: 6
+
+leader:
+  algorithm: waypoints
+  params:
+    speed: 8
+    waypoints:
+      - [150, 0, 50]
+      - [150, 160, 50]
+      - [-150, 160, 50]
+      - [-150, -160, 50]
+      - [150, -160, 50]
+      - [150, -40, 50]
+
+followers:
+  algorithm: leader_path
+  params:
+    distance: 8
+
+finish: {north: [140, 160], east: [-80, -30]}  # конец маршрута с запасом на колонну; в начале полёта сюда никто не залетает

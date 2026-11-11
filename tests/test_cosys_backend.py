@@ -158,13 +158,13 @@ def test_fast_model_with_thrust_scale_goes_to_settings():
     assert all("Model" not in v for v in build_settings(sc)["Vehicles"].values())
 
 
-def test_rotor_drag_goes_to_settings_only_when_set():
+def test_rotor_drag_goes_to_settings_unless_zero():
     from multiuav.cosys_settings import build_settings
     sc = Scenario(name="t", drones=2, leader=AlgorithmSpec("gamepad"),
                   followers=AlgorithmSpec("single_file"))
-    assert all("RotorDrag" not in v for v in build_settings(sc)["Vehicles"].values())
-    sc.rotor_drag = 0.035
     assert {v["RotorDrag"] for v in build_settings(sc)["Vehicles"].values()} == {0.035}
+    sc.rotor_drag = 0.0
+    assert all("RotorDrag" not in v for v in build_settings(sc)["Vehicles"].values())
 
 
 def test_log_messages_hidden_by_default():

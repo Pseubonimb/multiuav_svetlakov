@@ -11,3 +11,5 @@ for_cogni/
 log.txt/
 corner.png
 drone_physics_report.md
+# настройки конкретного компьютера (движок, свои миры UE5): experiments/worlds.json + это
+experiments/local.json

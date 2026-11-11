@@ -6,11 +6,13 @@
 #   scripts/demo.sh -f 0                 только ведущий, без группы
 #   scripts/demo.sh -a flock             ведомые — стая Рейнольдса
 #   scripts/demo.sh -M cesium            карта CesiumCity (реальный мир)
+#   scripts/demo.sh -M city              город из Unity (/Game/RealCityPolygonMap)
 #   scripts/demo.sh -e                   Unreal уже открыт и Play нажат — не запускать его
 #   scripts/demo.sh -k                   без 3D: упрощённый симулятор kinematic
 #   scripts/demo.sh -c bottom-left       экраны камер в другом углу окна игры
 #   scripts/demo.sh -w -n                камеры 3 ведомых внутри окна Unreal (подокна AirSim, внизу)
 #   scripts/demo.sh -d                   отладочные строки AirSim видны сразу (иначе — по F2 в окне игры)
+#   scripts/demo.sh -o fast2.5 -r 0.035  модель дрона и сопротивление винтов (см. docs/drone_models.md)
 #   scripts/demo.sh -q 3                 графика Epic (0 Low … 4 Cinematic; по умолчанию 1 — Medium:
 #                                        игре нужно больше кадров в секунду, иначе камеры тормозят)
 #
@@ -33,14 +35,16 @@ corner=top-right
 quality=1
 subwindows=()
 messages=()
+physics=()
 
-usage() { sed -n '2,17p' "$0" | sed 's/^# \{0,1\}//'; echo
-  echo "Опции: -s сценарий  -f ведомых  -m althold|acro  -a алгоритм  -M blocks|cesium|/Game/...";
+usage() { sed -n '2,19p' "$0" | sed 's/^# \{0,1\}//'; echo
+  echo "Опции: -s сценарий  -f ведомых  -m althold|acro  -a алгоритм  -M blocks|cesium|city|/Game/...";
   echo "       -e (Unreal уже открыт)  -k (kinematic, без 3D)  -n (без экранов камер)"
   echo "       -c top-right|top-left|bottom-right|bottom-left  -w (подокна AirSim внутри Unreal)  -d (отладочные строки сразу)"
-  echo "       -q 0..4 (качество графики; по умолчанию 1 — Medium)"; }
+  echo "       -q 0..4 (качество графики; по умолчанию 1 — Medium)"
+  echo "       -o generic|fast|fast<k> (модель дрона)  -r с/м (сопротивление винтов)"; }
 
-while getopts "s:f:m:a:M:c:q:ekwndh" opt; do
+while getopts "s:f:m:a:M:c:q:o:r:ekwndh" opt; do
   case $opt in
     s) scenario=$OPTARG ;;
     f) followers=$OPTARG ;;
@@ -49,6 +53,7 @@ while getopts "s:f:m:a:M:c:q:ekwndh" opt; do
     M) case $OPTARG in
          blocks) MAP="/Game/FlyingCPP/Maps/FlyingExampleMap" ;;
          cesium) MAP="/Game/CesiumCity" ;;
+         city) MAP="/Game/RealCityPolygonMap" ;;
          *) MAP=$OPTARG ;;
        esac ;;
     e) launch_ue=0 ;;
@@ -58,6 +63,8 @@ while getopts "s:f:m:a:M:c:q:ekwndh" opt; do
     q) quality=$OPTARG ;;
     w) subwindows=(--subwindows) ;;
     d) messages=(--messages) ;;
+    o) physics+=(--model "$OPTARG") ;;
+    r) physics+=(--rotor-drag "$OPTARG") ;;
     h|*) usage; exit 0 ;;
   esac
 done
@@ -78,7 +85,7 @@ trap cleanup EXIT
 
 if [[ $backend == cosys ]]; then
   echo ">> settings.json для $((followers + 1)) дронов"
-  python -m multiuav settings "$scenario" --followers "$followers" "${subwindows[@]}" "${messages[@]}" --write
+  python -m multiuav settings "$scenario" --followers "$followers" "${subwindows[@]}" "${messages[@]}" "${physics[@]}" --write
 
   if [[ $launch_ue == 1 ]]; then
     echo ">> Unreal: $MAP (лог — $out/unreal.log)"

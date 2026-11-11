@@ -59,6 +59,9 @@ def build_settings(scenario: Scenario, with_subwindows: bool = False,
             "Y": round(float(p[1]), 2),
             "Z": 0,  # на земле под точкой старта; высоту набирает менеджер
             "Yaw": round(math.degrees(scenario.heading), 1),
+            # Плагин не читает пульт сам: иначе до enableApiControl SimpleFlight принимает
+            # наш джойстик за свой RC и даёт тягу — дрон подпрыгивал на старте на 10–30 м.
+            "RC": {"RemoteControlID": -1},
         }
         if scenario.perception.lidar_range > 0:
             vehicles[vehicle_name(i)]["Sensors"] = {LIDAR_NAME: lidar_settings(scenario)}
@@ -66,17 +69,27 @@ def build_settings(scenario: Scenario, with_subwindows: bool = False,
             # Своя доработка плагина (SimpleFlightQuadXParams/SimpleFlightApi): без неё
             # AirSim ключ Model для SimpleFlight молча игнорирует. fast2.5 → "Fast2.5": тяга x2.5.
             vehicles[vehicle_name(i)]["Model"] = "Fast" + scenario.model[4:]
+        if scenario.fpv_camera:
+            c = scenario.fpv_camera
+            pose = {"X": float(c.get("x", 0.0)), "Y": float(c.get("y", 0.0)), "Z": float(c.get("z", 0.0)),
+                    "Pitch": float(c.get("pitch_deg", 0.0)), "Roll": 0.0, "Yaw": 0.0}
+            # Окно игры в режиме FPV показывает камеру «fpv», снимки по API — «front_center»:
+            # обе на одном месте, чтобы пилот видел то же, что пишут и проверяют скрипты.
+            vehicles[vehicle_name(i)]["Cameras"] = {"fpv": dict(pose), "front_center": dict(pose)}
         if scenario.rotor_drag > 0:
             # Тоже своя доработка плагина (патч 04): без неё ключ игнорируется.
+            # То же k берёт kinematic — дрон тормозит одинаково в обоих симуляторах.
             vehicles[vehicle_name(i)]["RotorDrag"] = scenario.rotor_drag
     settings = {
         "SettingsVersion": 2.0,
         "SimMode": "Multirotor",
         "ClockSpeed": 1,
-        "ViewMode": "FlyWithMe",
+        "ViewMode": scenario.view_mode,
         # Отладочные строки AirSim в углу экрана (и наши simPrintLogMessage) скрыты;
         # F2 в окне игры показывает/прячет их (своя доработка плагина, патч 05).
         "LogMessagesVisible": messages,
+        # Кнопка REC (запись кадров AirSim) в правом нижнем углу не нужна.
+        "RecordUIVisible": False,
         "Vehicles": vehicles,
     }
     if with_subwindows:

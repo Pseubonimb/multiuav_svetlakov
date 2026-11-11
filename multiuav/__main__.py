@@ -1,6 +1,7 @@
 """Командная строка: python -m multiuav <команда> ...
 
   run       прогнать сценарий (в упрощённом симуляторе или в Cosys-AirSim)
+  sim       исследовательский прогон целиком: мир Unreal, камеры, полёт, все журналы в одну папку
   compare   сравнить алгоритмы и размеры группы на одном сценарии
   settings  создать settings.json для Cosys-AirSim из сценария
   cameras   экраны с камер ведомых поверх окна Unreal
@@ -45,6 +46,10 @@ def _load(args) -> Scenario:
         sc.leader = AlgorithmSpec(args.leader, sc.leader.params)
     if getattr(args, "mode", None):
         sc.leader = AlgorithmSpec(sc.leader.name, {**sc.leader.params, "mode": args.mode})
+    if getattr(args, "model", None):
+        sc.model = args.model.lower()  # generic, fast, fast2.5 …
+    if getattr(args, "rotor_drag", None) is not None:
+        sc.rotor_drag = args.rotor_drag
     return sc
 
 
@@ -141,6 +146,8 @@ def cmd_sticks(args) -> None:
         sticklog.run_list(args.device)
     elif args.action == "map":
         sticklog.run_map(args.device, args.map)
+    elif args.action == "button":
+        sticklog.run_button(args.device, args.map, args.name)
     else:
         sticklog.run_log(args.device, args.map, args.out, args.profile, args.adc_filter,
                          args.note, args.keep_fuzz, args.fsync)
@@ -163,9 +170,16 @@ def main(argv: list[str] | None = None) -> None:
                      help="режим пульта ведущего: althold (как AltHold) или acro")
     run.add_argument("--algorithm", help="алгоритм ведомых вместо указанного в сценарии")
     run.add_argument("--leader", help="кто ведёт: waypoints, gamepad или свой алгоритм")
+    run.add_argument("--rotor-drag", type=float,
+                     help="сопротивление винтов, с/м, вместо указанного в сценарии (0 — «лёд»); "
+                          "в kinematic действует сразу, в Cosys — только через settings и перезапуск игры")
     run.add_argument("--out", help="папка для журнала прогона")
     run.add_argument("--plot", help="сохранить картинку траекторий (PNG)")
     run.set_defaults(func=cmd_run)
+
+    from .sim import add_parser as add_sim_parser
+
+    add_sim_parser(sub, MODES)
 
     compare = sub.add_parser("compare", help="сравнить алгоритмы в упрощённом симуляторе")
     compare.add_argument("scenario")
@@ -178,6 +192,9 @@ def main(argv: list[str] | None = None) -> None:
     settings.add_argument("scenario")
     settings.add_argument("--drones", type=int)
     settings.add_argument("--followers", type=int, help="сколько ведомых (дронов будет N+1)")
+    settings.add_argument("--model", help="модель дрона вместо указанной в сценарии: generic, fast, fast2.5 …")
+    settings.add_argument("--rotor-drag", type=float,
+                          help="сопротивление винтов, с/м, вместо указанного в сценарии (0 — выключить)")
     settings.add_argument("--subwindows", action="store_true",
                           help="камеры первых 3 ведомых во встроенных подокнах AirSim (внизу окна)")
     settings.add_argument("--messages", action="store_true",
@@ -208,8 +225,10 @@ def main(argv: list[str] | None = None) -> None:
     gamepad.set_defaults(func=cmd_gamepad)
 
     sticks = sub.add_parser("sticks", help="журнал стиков пульта через evdev")
-    sticks.add_argument("action", choices=["list", "map", "log"],
-                        help="list — оси и диапазоны, map — разметить стики, log — записать попытку")
+    sticks.add_argument("action", choices=["list", "map", "button", "log"],
+                        help="list — оси и диапазоны, map — разметить стики, "
+                             "button — разметить кнопку (--name SE), log — записать попытку")
+    sticks.add_argument("--name", default="SE", help="имя кнопки для button")
     sticks.add_argument("--device", help="/dev/input/eventN (по умолчанию — найти пульт)")
     sticks.add_argument("--map", type=Path, default=Path("radio/sticks_map.json"),
                         help="файл соответствия стиков и осей")

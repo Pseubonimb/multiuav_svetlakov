@@ -1,0 +1,37 @@
+--- a/Source/AirLib/include/physics/FastPhysicsEngine.hpp
++++ b/Source/AirLib/include/physics/FastPhysicsEngine.hpp
+@@ -177,7 +177,11 @@
+                 friction = 1;
+ 
+                 //we have collided with ground straight on, we will fix orientation later
+-                ground_collision = is_ground_normal;
++                // MultiUAV: only an upright vehicle locks to the ground (orientation reset);
++                // a flipped or tumbled vehicle keeps its attitude, as a real drone would.
++                // "upright": the body's down axis points down in the world
++                const Vector3r body_down = VectorMath::transformToWorldFrame(Vector3r(0, 0, 1), current.pose.orientation);
++                ground_collision = is_ground_normal && body_down.z() > 0.7f;
+             }
+ 
+             //velocity at contact point
+@@ -247,7 +251,11 @@
+             }
+             else {
+                 //else keep the orientation
+-                next.pose.position = collision_info.position + (collision_info.normal * collision_info.penetration_depth) + next.twist.linear * (dt_real * kCollisionResponseCycles);
++                // MultiUAV: push out a bit more than the penetration, in proportion to the impact
++                // speed (0 when resting), so a fast hit does not leave the camera inside the obstacle.
++                const real_T impact_speed = std::max(static_cast<real_T>(0), -collision_info.normal.dot(vcur_avg));
++                const real_T push_out = std::min(kCollisionPushOutMax, impact_speed * kCollisionPushOutPerSpeed);
++                next.pose.position = collision_info.position + (collision_info.normal * (collision_info.penetration_depth + push_out)) + next.twist.linear * (dt_real * kCollisionResponseCycles);
+             }
+             next_wrench = Wrench::zero();
+ 
+@@ -481,6 +489,8 @@
+ 
+     private:
+         static constexpr uint kCollisionResponseCycles = 1;
++        static constexpr float kCollisionPushOutPerSpeed = 0.02f; //m per m/s of impact speed
++        static constexpr float kCollisionPushOutMax = 0.3f; //m
+         static constexpr float kAxisTolerance = 0.25f;
+         static constexpr float kRestingVelocityMax = 0.1f;
+         static constexpr float kDragMinVelocity = 0.1f;

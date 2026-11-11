@@ -18,6 +18,29 @@
 там же, где прошёл ведущий. Это нереалистично (ведомые знают весь путь лидера),
 поэтому для эксперимента сделаны алгоритмы «по зрению», см. ниже.
 
+Путеводитель по всей программе — блоки, команды, варианты запуска, перенос на другой
+компьютер и вопросы для самопроверки: [docs/PROGRAM_GUIDE.md](docs/PROGRAM_GUIDE.md).
+
+## Запуск для исследований: `scripts/start_sim.sh`
+
+Один прогон целиком: settings.json → Unreal (игра или редактор) → экраны камер → полёт →
+закрыть всё; журналы, картинка, копии сценария и settings.json — в одну папку. Его же будет
+вызывать меню исследований (прототип — [docs/research_menu_prototype.html](docs/research_menu_prototype.html)).
+
+```bash
+scripts/start_sim.sh scenarios/unity_city.yaml --world city --followers 4 --out runs/city1
+scripts/start_sim.sh scenarios/corner.yaml --backend kinematic --algorithm flock    # без Unreal
+scripts/start_sim.sh scenarios/rc_group.yaml --world city --editor                  # Play — сами
+scripts/start_sim.sh --list-worlds                                                  # известные миры
+scripts/start_sim.sh --save-world field --project ~/UE/Field/Field.uproject --map /Game/Maps/Field
+scripts/start_sim.sh --help                                                         # все опции
+```
+
+Мир — любой проект `.uproject` на диске и карта в нём. Готовые миры —
+[experiments/worlds.json](experiments/worlds.json), свои запоминаются в `experiments/local.json`
+(не в git). Подробнее — [docs/PROGRAM_GUIDE.md](docs/PROGRAM_GUIDE.md), раздел 4.
+`scripts/demo.sh` остаётся короткой демонстрацией.
+
 ## Быстрый старт без Unreal
 
 ```bash
@@ -48,6 +71,78 @@ scripts/demo.sh -h              # все опции
 (без кнопки Play), ждёт симулятор, открывает экраны камер ведомых и запускает полёт.
 Во время полёта: **L** в терминале — посадить ведомых / поднять обратно, **Ctrl+C** —
 закончить. Лог и картинка траекторий — в `runs/demo_<время>/`.
+
+### Группа с пультом на карте города
+
+Город перенесён из Unity в проект Blocks, уровень `/Game/RealCityPolygonMap`
+(раздел 26 файла опыта). Старт — плиты `Start_Position` в центре города, PlayerStart
+стоит в `(0, 0, 100)` см. Дома до ~30 м: на 10 м группа летит между ними, по улицам.
+
+**Перед любым вариантом:** подключить RadioMaster по USB в режиме **USB Joystick** и
+проверить оси командой `python -m multiuav gamepad`. Номера осей — в `leader.params.axes`
+сценария [scenarios/rc_group.yaml](scenarios/rc_group.yaml), тумблер режима — `mode_switch`.
+Все команды — из папки репозитория с включённым окружением:
+`cd ~/Documents/multiuav_svetlakov && source .venv/bin/activate`.
+
+#### Вариант 1. Без редактора — сразу игра
+
+Редактор не открывается: Unreal запускает город в режиме игры (`-game`), Play нажимать
+не нужно. Unreal перед этим должен быть закрыт.
+
+```bash
+scripts/demo.sh -M city              # пульт в AltHold, 4 ведомых
+scripts/demo.sh -M city -m acro      # пульт в Acro
+scripts/demo.sh -M city -f 2         # 2 ведомых
+```
+
+Скрипт запишет `settings.json` на 1 + N дронов, откроет город в окне 1600×900,
+дождётся симулятора, откроет экраны камер ведомых, поднимет дронов на 10 м и отдаст
+лидера пульту. После Ctrl+C окно игры закроется само.
+
+#### Вариант 2. В редакторе — Play нажимаете сами
+
+Удобно, если нужно что-то поправить на карте между полётами.
+
+1. Открыть город в редакторе:
+
+   ```bash
+   ue5 "$HOME/Downloads/Blocks 5.8/Blocks.uproject" /Game/RealCityPolygonMap
+   ```
+
+2. Запустить скрипт с `-e` («Unreal уже открыт, не запускать его»):
+
+   ```bash
+   scripts/demo.sh -e                   # пульт в AltHold, 4 ведомых
+   scripts/demo.sh -e -m acro           # пульт в Acro
+   ```
+
+3. Когда в терминале появится «жду симулятор», нажать **Play** в редакторе (лучше
+   Selected Viewport — без нового окна). Порядок важен: скрипт сначала пишет
+   `settings.json`, а Unreal читает его только в момент Play. Если Play уже был нажат —
+   остановить (Esc) и нажать снова.
+
+То же без скрипта, по шагам (без окна камер):
+
+```bash
+python -m multiuav settings scenarios/rc_group.yaml --followers 4 --write
+# в редакторе: Play
+python -m multiuav run scenarios/rc_group.yaml --backend cosys --followers 4 --out runs/city1 --plot runs/city1.png
+```
+
+Окно камер отдельно, во втором терминале: `python -m multiuav cameras --followers 4`.
+После полёта Play останавливается в редакторе (Esc), редактор остаётся открытым.
+
+#### Во время полёта (оба варианта)
+
+- **L** в терминале — посадить ведомых, ещё раз L — поднять обратно;
+- **F2** в окне игры — показать/спрятать отладочные строки AirSim;
+- **Ctrl+C** в терминале — закончить; лог — в `runs/demo_<время>/` (или в папке из `--out`).
+
+Без пульта, лидер на автопилоте облетает город по дорогам на 50 м:
+
+```bash
+scripts/demo.sh -M city -s scenarios/unity_city.yaml -a visual_follow
+```
 
 ## Модель дрона и сопротивление воздуха
 

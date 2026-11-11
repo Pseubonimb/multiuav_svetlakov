@@ -2,7 +2,7 @@
 
 Нужен, чтобы отлаживать алгоритмы и гонять серии прогонов на любой машине,
 в том числе в автоматических тестах. Модель грубая: наклон -> ускорение,
-линейное сопротивление воздуха, инерция наклона и вертикальной скорости.
+сопротивление винтов (то же k, что и в Cosys), инерция наклона и вертикальной скорости.
 Отлаженный здесь алгоритм потом проверяется в Cosys-AirSim.
 
 Дальномер (лидар) моделируется лучами в горизонтальной плоскости: луч
@@ -27,16 +27,17 @@ SOFT_LANDING = 1.5  # м/с вниз: медленнее — посадка, б�
 class KinematicBackend(SimBackend):
     realtime = False
 
-    def __init__(self, drone_radius: float = 0.4, drag: float = 0.35,
+    def __init__(self, drone_radius: float = 0.4, vertical_drag: float = 0.35,
                  tilt_tau: float = 0.15, climb_tau: float = 0.3) -> None:
         self.drone_radius = drone_radius
-        self.drag = drag
+        self.vertical_drag = vertical_drag  # 1/с, только в Acro: вдоль оси винтов rotor drag нет
         self.tilt_tau = tilt_tau
         self.climb_tau = climb_tau
 
     def start(self, scenario: Scenario) -> None:
         n = scenario.drones
         self.limits = scenario.limits
+        self.rotor_drag = scenario.rotor_drag
         self.buildings = scenario.buildings
         self.perception = scenario.perception
         self.pos = np.array(scenario.start_positions(), dtype=float)
@@ -45,10 +46,28 @@ class KinematicBackend(SimBackend):
         self.tilt = np.zeros((n, 2))  # крен, тангаж
         self.collided = np.zeros(n, dtype=bool)
         self.commands = [RcOverride() for _ in range(n)]
+        self._reported = np.zeros(n, dtype=bool)
 
     def states(self) -> list[DroneState]:
-        return [DroneState(i, self.pos[i].copy(), self.vel[i].copy(), float(self.yaw[i]),
-                           bool(self.collided[i]), self.ranges(i)) for i in range(len(self.pos))]
+        result = []
+        for i in range(len(self.pos)):
+            touching = bool(self.collided[i] and not self._reported[i])  # момент удара
+            self._reported[i] = self.collided[i]
+            result.append(DroneState(i, self.pos[i].copy(), self.vel[i].copy(), float(self.yaw[i]),
+                                     bool(self.collided[i]), self.ranges(i),
+                                     roll=float(self.tilt[i, 0]), pitch=float(self.tilt[i, 1]),
+                                     touching=touching, touched="building" if touching else ""))
+        return result
+
+    def reset(self, drone_id: int, position: np.ndarray, heading: float) -> None:
+        """Поставить дрон в точку (north, east, alt) носом по курсу, скорость 0."""
+        p = np.asarray(position, dtype=float)
+        self.pos[drone_id] = [p[0], p[1], -p[2]]
+        self.vel[drone_id] = 0.0
+        self.tilt[drone_id] = 0.0
+        self.yaw[drone_id] = heading
+        self.collided[drone_id] = False
+        self._reported[drone_id] = False
 
     def send(self, drone_id: int, rc: RcOverride) -> None:
         self.commands[drone_id] = rc
@@ -79,7 +98,7 @@ class KinematicBackend(SimBackend):
         thrust = G * sp.throttle / self.limits.hover_throttle  # м/с² вдоль оси дрона
         roll, pitch = self.tilt[i]
         lift = thrust * math.cos(roll) * math.cos(pitch)
-        self.vel[i, 2] += (G - lift - self.drag * self.vel[i, 2]) * dt  # NED: z вниз
+        self.vel[i, 2] += (G - lift - self.vertical_drag * self.vel[i, 2]) * dt  # NED: z вниз
         self._horizontal(i, thrust, dt)
 
     def _horizontal(self, i: int, thrust: float | None, dt: float) -> None:
@@ -87,12 +106,15 @@ class KinematicBackend(SimBackend):
         roll, pitch = self.tilt[i]
         if thrust is None:
             acc_forward, acc_right = G * math.tan(pitch), G * math.tan(roll)
+            thrust = G / (math.cos(roll) * math.cos(pitch))  # столько нужно, чтобы держать высоту
         else:
             acc_forward = thrust * math.sin(pitch) * math.cos(roll)
             acc_right = thrust * math.sin(roll)
         c, s = math.cos(self.yaw[i]), math.sin(self.yaw[i])
         acc = np.array([acc_forward * c - acc_right * s, acc_forward * s + acc_right * c])
-        self.vel[i, :2] += (acc - self.drag * self.vel[i, :2]) * dt
+        # Сопротивление винтов, как в патче 04 к Cosys: F/m = -k * (T/m) * v. На висении
+        # k * g ≈ 0.34 1/с при k = 0.035; с наклоном тяга больше — и сопротивление тоже.
+        self.vel[i, :2] += (acc - self.rotor_drag * thrust * self.vel[i, :2]) * dt
 
     def ranges(self, i: int) -> np.ndarray | None:
         """Круговой дальномер: расстояние до ближайшего здания в каждом секторе."""

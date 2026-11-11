@@ -15,7 +15,11 @@ EdgeTX), поэтому профиль модели и фильтр АЦП за�
 
   python -m multiuav sticks list                 устройства и их оси (Min/Max/Fuzz/Flat)
   python -m multiuav sticks map                  какой стик какой оси соответствует
+  python -m multiuav sticks button SE            какая кнопка пульта — SE (нажать её)
   python -m multiuav sticks log --profile ...    записать попытку
+
+Нажатия и отпускания кнопок пишутся отдельным файлом buttons.csv: строка на каждое
+событие EV_KEY, с теми же часами t_ms и меткой ядра evdev_us, что у sticks.csv.
 """
 
 from __future__ import annotations
@@ -97,6 +101,16 @@ def axes_info(dev) -> dict[int, object]:
     """Код оси → AbsInfo(value, min, max, fuzz, flat, resolution)."""
     evdev = _evdev()
     return {code: info for code, info in dev.capabilities().get(evdev.ecodes.EV_ABS, [])}
+
+
+def key_name(code: int) -> str:
+    name = _evdev().ecodes.KEY.get(code) or _evdev().ecodes.BTN.get(code, f"KEY_{code}")
+    return name[0] if isinstance(name, (list, tuple)) else name
+
+
+def button_names(mapping_file: dict) -> dict[int, str]:
+    """Код кнопки → имя из разметки («SE»); остальные кнопки — по имени evdev."""
+    return {int(b["code"]): name for name, b in mapping_file.get("buttons", {}).items()}
 
 
 def axis_name(code: int) -> str:
@@ -213,7 +227,50 @@ def run_map(device: str | None, save: Path) -> None:
     print(f"\nСоответствие записано: {save}")
 
 
+def run_button(device: str | None, save: Path, name: str) -> None:
+    """Нажать кнопку пульта — её код записывается в разметку под именем name (SE)."""
+    evdev = _evdev()
+    dev = find_device(device)
+    data = json.loads(save.read_text(encoding="utf-8")) if save.exists() else {"device_name": dev.name, "axes": {}}
+    print(f"Пульт: {dev.path}  {dev.name}\nНажмите и отпустите кнопку {name} (Ctrl+C — отмена).")
+    pressed = None
+    for ev in dev.read_loop():
+        if ev.type != evdev.ecodes.EV_KEY:
+            continue
+        if ev.value == 1 and pressed is None:
+            pressed = ev.code
+            print(f"  нажата {key_name(ev.code)} (код {ev.code})")
+        elif ev.value == 0 and ev.code == pressed:
+            break
+    data.setdefault("buttons", {})[name] = {"code": pressed, "name": key_name(pressed)}
+    save.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    print(f"{name} → {key_name(pressed)} (код {pressed}), записано: {save}")
+
+
 # ---------------------------------------------------------------- log
+
+
+class ButtonWriter:
+    """События кнопок → строки buttons.csv: t_ms, evdev_us, button, code, state (1/0)."""
+
+    def __init__(self, f, names: dict[int, str], fsync_each_row: bool = False) -> None:
+        self.f = f
+        self.names = names
+        self.fsync_each_row = fsync_each_row
+        self.rows = 0
+        f.write("t_ms,evdev_us,button,code,state\n")
+        f.flush()
+
+    def key_event(self, t_ms: int, evdev_us: int, code: int, value: int, fallback: str = "") -> bool:
+        if value not in (0, 1):
+            return False  # 2 — автоповтор удержания, не нажатие
+        name = self.names.get(code) or fallback or f"KEY_{code}"
+        self.f.write(f"{t_ms},{evdev_us},{name},{code},{value}\n")
+        self.f.flush()
+        if self.fsync_each_row or value == 1:
+            os.fsync(self.f.fileno())  # нажатие — на диск сразу, их немного
+        self.rows += 1
+        return True
 
 
 class StickWriter:
@@ -284,7 +341,9 @@ def run_log(device: str | None, map_path: Path, out: Path | None, profile: str |
     evdev = _evdev()
     if not map_path.exists():
         raise SystemExit(f"Нет файла соответствия {map_path}: сначала python -m multiuav sticks map")
-    mapping = json.loads(map_path.read_text(encoding="utf-8"))["axes"]
+    map_file = json.loads(map_path.read_text(encoding="utf-8"))
+    mapping = map_file["axes"]
+    buttons = button_names(map_file)
     dev = find_device(device)
     if not profile:
         print("Внимание: профиль модели EdgeTX не указан (--profile) — запишу «не указан».")
@@ -319,7 +378,12 @@ def run_log(device: str | None, map_path: Path, out: Path | None, profile: str |
         "csv": {"t_ms": "time.time_ns() // 1e6 при чтении пачки событий",
                 "evdev_us": "метка ядра, мкс, CLOCK_REALTIME",
                 "<стик>": "сырое значение оси", "<стик>_us": "1000–2000, вверх/вправо = 2000"},
+        "buttons": {name: code for code, name in buttons.items()},
+        "buttons_csv": {"t_ms": "как в sticks.csv", "evdev_us": "метка ядра события кнопки",
+                        "button": "имя из разметки (SE) или evdev", "code": "код EV_KEY",
+                        "state": "1 нажата, 0 отпущена"},
         "rows": 0,
+        "button_rows": 0,
         "syn_dropped": 0,
         "stopped_by": None,
     }
@@ -336,13 +400,21 @@ def run_log(device: str | None, map_path: Path, out: Path | None, profile: str |
     show = sys.stdout.isatty()
     last_show = 0.0
     stopped_by = "Ctrl+C"
-    with open(out / "sticks.csv", "w", encoding="utf-8", newline="") as f:
+    if not buttons:
+        print("Внимание: в разметке нет кнопок (SE) — нажатия пишутся по именам evdev. "
+              "Разметить: python -m multiuav sticks button SE")
+    with open(out / "sticks.csv", "w", encoding="utf-8", newline="") as f, \
+            open(out / "buttons.csv", "w", encoding="utf-8", newline="") as fb:
         writer = StickWriter(f, mapping, ranges, values, fsync_each_row)
+        bwriter = ButtonWriter(fb, buttons, fsync_each_row)
         writer.report(time.time_ns() // 1_000_000, 0)  # исходное положение
         try:
             for ev in dev.read_loop():
                 if ev.type == evdev.ecodes.EV_ABS:
                     writer.abs_event(ev.code, ev.value)
+                elif ev.type == evdev.ecodes.EV_KEY:
+                    bwriter.key_event(time.time_ns() // 1_000_000, ev.sec * 1_000_000 + ev.usec,
+                                      ev.code, ev.value, key_name(ev.code))
                 elif ev.type == evdev.ecodes.EV_SYN and ev.code == evdev.ecodes.SYN_DROPPED:
                     writer.dropped_events()
                 elif ev.type == evdev.ecodes.EV_SYN and ev.code == evdev.ecodes.SYN_REPORT:
@@ -358,8 +430,10 @@ def run_log(device: str | None, map_path: Path, out: Path | None, profile: str |
         except OSError as e:  # пульт выдернули
             stopped_by = f"устройство пропало: {e}"
         os.fsync(f.fileno())
+        os.fsync(fb.fileno())
 
     passport.update(finished_ms=time.time_ns() // 1_000_000, rows=writer.rows,
+                    button_rows=bwriter.rows,
                     syn_dropped=writer.dropped, stopped_by=stopped_by)
     _write_json(out / "passport.json", passport)
     print(f"\nЗаписано строк: {writer.rows}, потерь событий (SYN_DROPPED): {writer.dropped}. "

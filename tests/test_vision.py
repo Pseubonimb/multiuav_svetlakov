@@ -146,3 +146,15 @@ def test_followers_option_sets_group_size():
 def test_cli_compare_runs_vision_algorithms(capsys):
     main(["compare", str(CORNER), "--algorithms", "visual_follow", "--drones", "3"])
     assert "visual_follow" in capsys.readouterr().out
+
+
+def test_rotor_drag_from_scenario_slows_kinematic_like_cosys():
+    def glide(k):
+        backend, _ = _one_drone(rotor_drag=k)
+        backend.vel[0, :2] = [15.0, 0.0]
+        _fly(backend, RcOverride(), 3.0)  # AltHold, стики в центре — дрон катится сам
+        return backend.vel[0, 0]
+
+    assert glide(0.0) > 14.9  # «лёд», как в исходном AirSim
+    # k·g·t = 0.035 · 9.81 · 3 ≈ 1.03: скорость падает примерно в e раз
+    assert 4.0 < glide(0.035) < 7.0

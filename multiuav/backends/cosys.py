@@ -34,8 +34,10 @@ def rc_display_text(rc: RcOverride) -> str:
 
 #: Не чаще раза в столько секунд сообщать о столкновениях одного дрона.
 ALARM_PERIOD = 1.5
-#: Касания ниже этой высоты над точкой старта — взлёт или посадка, а не авария.
-GROUND_ALTITUDE = 0.5
+#: Касания ниже этой высоты над полом, где дрон стоял на старте, и медленнее GROUND_SPEED —
+#: взлёт или посадка, а не авария.
+GROUND_ALTITUDE = 0.3
+GROUND_SPEED = 1.5
 #: Целевая высота AltHold не опускается ниже этого (NED, м от точки старта, z вниз).
 GROUND_Z = 1.0
 
@@ -52,6 +54,14 @@ LIDAR_SELF = 1.0
 def _yaw_from_quaternion(q) -> float:
     w, x, y, z = q.w_val, q.x_val, q.y_val, q.z_val
     return math.atan2(2.0 * (w * z + x * y), 1.0 - 2.0 * (y * y + z * z))
+
+
+def _euler_from_quaternion(q) -> tuple[float, float, float]:
+    """Крен, тангаж, рысканье, рад (как airsim.to_eularian_angles, порядок ZYX)."""
+    w, x, y, z = q.w_val, q.x_val, q.y_val, q.z_val
+    roll = math.atan2(2.0 * (w * x + y * z), 1.0 - 2.0 * (x * x + y * y))
+    pitch = math.asin(max(-1.0, min(1.0, 2.0 * (w * y - z * x))))
+    return roll, pitch, _yaw_from_quaternion(q)
 
 
 def _rotate(q, points: np.ndarray) -> np.ndarray:
@@ -97,6 +107,7 @@ class CosysBackend(SimBackend):
 
         self.limits = scenario.limits
         self.show_rc = scenario.show_rc
+        self.collision_alarms = scenario.collision_alarms
         self._last_rc_display = -math.inf
         self.client = airsim.MultirotorClient(ip=self.host)
         self.client.confirmConnection()
@@ -116,18 +127,33 @@ class CosysBackend(SimBackend):
         self.perception = scenario.perception
         self._last_ranges: list[np.ndarray | None] = [None for _ in self.names]
 
-        for name in self.names:
+        # Высота пола под каждым дроном (z вниз, от его точки старта).
+        self._ground_z = [self.client.simGetGroundTruthKinematics(n).position.z_val
+                          for n in self.names]
+        # Без автовзлёта взводим дрон вместе с первой командой (send): пока команд нет,
+        # взведённый SimpleFlight сам даёт тягу — дрон «подпрыгивал» на 10–30 м.
+        self._armed = [False for _ in self.names]
+        for i, name in enumerate(self.names):
             self.client.enableApiControl(True, name)
-            self.client.armDisarm(True, name)
+            if scenario.takeoff:
+                self.client.armDisarm(True, name)
+                self._armed[i] = True
             if scenario.rate_gains:
                 g = airsim.PIDGains(*scenario.rate_gains)
                 self.client.setAngleRateControllerGains(
                     airsim.AngleRateControllerGains(g, g, g), vehicle_name=name)
-        for f in [self.client.takeoffAsync(vehicle_name=n) for n in self.names]:
-            f.join()
-        for f in [self.client.moveToZAsync(-scenario.altitude, 3.0, vehicle_name=n)
-                  for n in self.names]:
-            f.join()
+        if scenario.takeoff:
+            for f in [self.client.takeoffAsync(vehicle_name=n) for n in self.names]:
+                f.join()
+            for f in [self.client.moveToZAsync(-scenario.altitude, 3.0, vehicle_name=n)
+                      for n in self.names]:
+                f.join()
+        else:
+            # Взлетает пилот: цель AltHold — там, где дрон стоит.
+            for i, n in enumerate(self.names):
+                z = self.client.simGetGroundTruthKinematics(n).position.z_val
+                self.z_target[i] = self._last_z[i] = z
+        self._airsim = airsim
         # Касания земли при взлёте не считаем столкновениями.
         self._collision_baseline = [self.client.simGetCollisionInfo(n).time_stamp
                                     for n in self.names]
@@ -144,13 +170,19 @@ class CosysBackend(SimBackend):
                             k.linear_velocity.z_val])
             info = self.client.simGetCollisionInfo(name)
             collided = info.has_collided and info.time_stamp > self._collision_baseline[i]
+            touching = False
             if info.has_collided and info.time_stamp != self._last_stamp[i]:
                 self._last_stamp[i] = info.time_stamp
-                if k.position.z_val < -GROUND_ALTITUDE:  # на земле при взлёте — не авария
+                on_ground = (k.position.z_val > self._ground_z[i] - GROUND_ALTITUDE
+                             and np.linalg.norm(vel) < GROUND_SPEED)
+                if not on_ground:  # стоит на полу, взлетает или садится — не авария
+                    touching = True
                     self._alarm(i, pos, info.object_name)
             self._last_z[i] = k.position.z_val
-            yaw = _yaw_from_quaternion(k.orientation)
-            result.append(DroneState(i, pos, vel, yaw, collided, self._ranges(i, name)))
+            roll, pitch, yaw = _euler_from_quaternion(k.orientation)
+            result.append(DroneState(i, pos, vel, yaw, collided, self._ranges(i, name),
+                                     roll=roll, pitch=pitch, touching=touching,
+                                     touched=info.object_name if touching else ""))
         return result
 
     def message(self, text: str) -> None:
@@ -163,7 +195,7 @@ class CosysBackend(SimBackend):
         """Показать столкновение в окне Unreal: красная строка в сообщениях AirSim
         (та же строка для дрона обновляется) и надпись в мире над самим дроном."""
         now = time.monotonic()
-        if now - self._last_alarm[i] < ALARM_PERIOD:
+        if not self.collision_alarms or now - self._last_alarm[i] < ALARM_PERIOD:
             return  # одно касание стены даёт десятки событий подряд
         self._last_alarm[i] = now
         try:
@@ -196,6 +228,9 @@ class CosysBackend(SimBackend):
         dt = min(now - self._last_send[drone_id], 0.5)
         self._last_send[drone_id] = now
         name = self.names[drone_id]
+        if not self._armed[drone_id]:
+            self.client.armDisarm(True, name)
+            self._armed[drone_id] = True
         if rc.mode == ACRO:
             # Acro: SimpleFlight держит только угловые скорости, тягу задаёт газ напрямую.
             # Оси те же, что у углов ниже, поэтому и знак рысканья тот же.
@@ -219,6 +254,23 @@ class CosysBackend(SimBackend):
             self._last_rc_display = now
             # Тот же первый аргумент — AirSim обновляет одну строку, а не добавляет новые.
             self.client.simPrintLogMessage("RC Drone0: ", rc_display_text(rc))
+
+    def reset(self, drone_id: int, position: np.ndarray, heading: float) -> None:
+        """Поставить дрон в точку (north, east, alt) носом по курсу, скорость 0 (клавиша R)."""
+        airsim = self._airsim
+        p = np.asarray(position, dtype=float) - self.origins[drone_id]
+        state = airsim.KinematicsState()
+        state.position = airsim.Vector3r(float(p[0]), float(p[1]), float(-position[2]))
+        state.orientation = airsim.euler_to_quaternion(0.0, 0.0, float(heading))
+        state.linear_velocity = airsim.Vector3r(0.0, 0.0, 0.0)
+        state.angular_velocity = airsim.Vector3r(0.0, 0.0, 0.0)
+        state.linear_acceleration = airsim.Vector3r(0.0, 0.0, 0.0)
+        state.angular_acceleration = airsim.Vector3r(0.0, 0.0, 0.0)
+        name = self.names[drone_id]
+        self.client.simSetKinematics(state, True, vehicle_name=name)
+        self.z_target[drone_id] = self._last_z[drone_id] = -float(position[2])
+        # Удар о стену до сброса не должен всплыть касанием после него.
+        self._last_stamp[drone_id] = self.client.simGetCollisionInfo(name).time_stamp
 
     def advance(self, dt: float) -> None:
         pass  # Unreal живёт в реальном времени, менеджер сам выдерживает темп.

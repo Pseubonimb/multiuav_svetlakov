@@ -1,0 +1,5 @@
+{
+  "_comment": "Скопировать в experiments/local.json (не в git) и поправить пути под этот компьютер. Свои миры добавляет python -m multiuav sim --save-world.",
+  "engine": "~/Downloads/UnrealEngine5/Engine/Binaries/Linux/UnrealEditor",
+  "worlds": {}
+}

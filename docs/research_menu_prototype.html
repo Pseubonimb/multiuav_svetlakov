@@ -1,0 +1,324 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Меню исследований MultiUAV</title>
+<style>
+  :root { --bg:#f4f5f7; --panel:#ffffff; --fg:#1f2328; --muted:#5d6670; --line:#d6dae0;
+          --accent:#2f6fde; --ok:#1a7f37; --part:#b26b00; --todo:#c0392b; --code:#f0f2f5; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg:#0d1117; --panel:#161b22;
+          --fg:#e6edf3; --muted:#9198a1; --line:#30363d; --accent:#6d9bff; --ok:#3fb950;
+          --part:#e3a23c; --todo:#ff6b6b; --code:#0d1117; } }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:14px/1.45 system-ui, "DejaVu Sans", sans-serif; }
+  header { padding:14px 16px 6px; }
+  h1 { margin:0; font-size:20px; } header p { margin:4px 0 0; color:var(--muted); }
+  .legend span { margin-right:12px; white-space:nowrap; }
+  main { display:grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap:12px; padding:12px 16px 24px; }
+  @media (max-width: 900px) { main { grid-template-columns: 1fr; } }
+  fieldset { background:var(--panel); border:1px solid var(--line); border-radius:10px; margin:0 0 12px; padding:10px 14px 12px; }
+  legend { font-weight:600; padding:0 6px; }
+  .row { display:flex; flex-wrap:wrap; gap:8px 14px; align-items:center; margin:6px 0; }
+  .row > label.t { min-width:150px; color:var(--muted); }
+  select, input[type=text], input[type=number] { background:var(--panel); color:var(--fg); border:1px solid var(--line);
+          border-radius:6px; padding:4px 6px; font:inherit; max-width:100%; }
+  input[type=number] { width:80px; }
+  .opt { display:inline-flex; gap:4px; align-items:center; }
+  .b { display:inline-block; font-size:11px; font-weight:600; padding:0 6px; border-radius:9px; color:#fff; vertical-align:1px; }
+  .ok { background:var(--ok); } .part { background:var(--part); } .todo { background:var(--todo); }
+  .note { color:var(--muted); font-size:12.5px; margin:4px 0 0; }
+  .disabled { opacity:.5; }
+  pre { background:var(--code); border:1px solid var(--line); border-radius:8px; padding:10px; margin:6px 0 0;
+        white-space:pre-wrap; word-break:break-word; font:12.5px/1.5 ui-monospace, "DejaVu Sans Mono", monospace; }
+  .buttons { display:flex; flex-wrap:wrap; gap:8px; margin-top:8px; }
+  button { font:inherit; padding:6px 14px; border-radius:7px; border:1px solid var(--line); background:var(--panel); color:var(--fg); cursor:pointer; }
+  button.primary { background:var(--accent); color:#fff; border-color:var(--accent); }
+  table { border-collapse:collapse; width:100%; font-size:13px; }
+  td, th { border-bottom:1px solid var(--line); padding:4px 6px; text-align:left; vertical-align:top; }
+  .warn { color:var(--todo); }
+</style>
+</head>
+<body>
+<header>
+  <h1>Меню исследований группового управления — прототип</h1>
+  <p>Набросок окна, а не рабочая программа. Справа — команды, которые меню запустило бы при текущих настройках:
+     по ним видно, что из выбранного уже есть в MultiUAV.</p>
+  <p class="legend"><span class="b ok">есть</span> работает сейчас
+     <span class="b part">частично</span> есть, но с оговоркой
+     <span class="b todo">нет</span> нужно дописать</p>
+</header>
+
+<main>
+<section>
+  <fieldset>
+    <legend>1. Симулятор</legend>
+    <div class="row">
+      <label class="opt"><input type="radio" name="backend" value="kinematic" checked> kinematic — без Unreal <span class="b ok">есть</span></label>
+      <label class="opt"><input type="radio" name="backend" value="cosys"> Unreal + Cosys-AirSim <span class="b ok">есть</span></label>
+    </div>
+    <p class="note">kinematic — точечная физика и здания-коробки из YAML, быстро и одинаково при каждом запуске; для перебора параметров.
+       AirSim — физика SimpleFlight, лидар, камеры, реальное время.</p>
+  </fieldset>
+
+  <fieldset id="ueBox">
+    <legend>2. Как открыть Unreal</legend>
+    <div class="row">
+      <label class="opt"><input type="radio" name="uemode" value="game" checked> Режим игры (<code>-game</code>), меню открывает и закрывает само <span class="b ok">есть</span></label>
+    </div>
+    <div class="row">
+      <label class="opt"><input type="radio" name="uemode" value="editor"> Редактор — Play нажимает человек <span class="b ok">есть</span></label>
+    </div>
+    <div class="row">
+      <label class="t" for="quality">Графика</label>
+      <select id="quality"><option value="0">Low</option><option value="1" selected>Medium (камеры быстрее)</option><option value="2">High</option><option value="3">Epic</option></select>
+      <label class="opt"><input type="checkbox" id="fullscreen"> на весь экран</label>
+    </div>
+    <p class="note">Набор настроек качества Unreal (scalability: тени, Lumen, дальность прорисовки), передаётся
+      игре как <code>-ExecCmds="scalability N"</code>. Камеры ведомых не бывают быстрее самой игры: кадр по API ждёт,
+      пока игра его отрисует. Замер на 4 ведомых: Epic ~11 кадров/с на камеру, Medium ~16. Ниже качество —
+      меньше видеопамяти (важно на Google 3D Tiles) и реже сбои видеокарты. Лидар и физика от графики не зависят:
+      для автономных алгоритмов хватит Low, для опытов с оператором (HSI) и видео — High/Epic.</p>
+  </fieldset>
+
+  <fieldset>
+    <legend>3. Карта</legend>
+    <div class="row">
+      <select id="map" style="min-width:320px">
+        <option value="empty">Пустое поле + блоки из YAML (world.buildings)</option>
+        <option value="city" selected>Город из Unity (RealCityPolygonMap)</option>
+        <option value="cesium">Реальный мир, Google 3D Tiles: Googleplex (CesiumCity)</option>
+        <option value="track">Трасса-коридор (Track_Easy …)</option>
+        <optgroup label="Мои миры (experiments/local.json)">
+          <option value="field">Поле для опытов — ~/UE/Field/Field.uproject</option>
+        </optgroup>
+        <option value="own">Свой мир UE5…</option>
+      </select>
+      <span class="b ok" id="mapBadge">есть</span>
+    </div>
+    <div id="ownBox">
+      <div class="row">
+        <label class="t" for="ownProject">Проект .uproject</label>
+        <input type="text" id="ownProject" value="~/UE/Field/Field.uproject" style="min-width:260px">
+        <button type="button">Обзор…</button>
+      </div>
+      <div class="row">
+        <label class="t" for="ownMap">Карта в проекте</label>
+        <select id="ownMap"><option>/Game/Maps/Field</option><option>/Game/Maps/Field_Night</option></select>
+        <span class="note">список — из папки Content проекта (<code>start_sim.sh --list-maps</code>)</span>
+      </div>
+      <div class="row">
+        <label class="t" for="ownName">Запомнить как</label>
+        <input type="text" id="ownName" value="field" style="width:120px">
+        <button type="button">Запомнить</button>
+        <span class="note">появится в «Мои миры» на этом компьютере (<code>--save-world</code>)</span>
+      </div>
+      <p class="note">Проект может лежать где угодно на диске. В нём должен быть плагин AirSim (папка
+        <code>Plugins/AirSim</code>, лучше с нашими патчами), а у карты — GameMode <code>AirSimGameMode</code>.
+        Движок тот же, что и для остальных миров (<code>engine</code> в <code>experiments/local.json</code>).</p>
+    </div>
+    <p class="note" id="mapNote"></p>
+  </fieldset>
+
+  <fieldset>
+    <legend>4. Сценарий и группа</legend>
+    <div class="row">
+      <label class="t" for="scenario">Сценарий</label>
+      <select id="scenario">
+        <option>rc_group.yaml</option><option>rc_single.yaml</option><option>corner.yaml</option>
+        <option>blocks_demo.yaml</option><option>unity_city.yaml</option><option>cesium_demo.yaml</option>
+      </select>
+      <button type="button">Открыть YAML</button> <span class="b ok">есть</span>
+    </div>
+    <div class="row">
+      <label class="t" for="followers">Ведомых</label>
+      <input type="number" id="followers" value="4" min="0" max="30">
+      <span class="note">всего дронов = ведомые + 1</span> <span class="b ok">есть</span>
+    </div>
+    <div class="row">
+      <label class="t" for="algo">Алгоритм ведомых</label>
+      <select id="algo"><option>visual_follow</option><option>flock</option><option>single_file</option><option>leader_path</option><option value="custom">свой файл .py:Класс…</option></select>
+      <span class="b ok">есть</span>
+    </div>
+    <div class="row">
+      <label class="t" for="model">Модель дрона</label>
+      <select id="model"><option>generic</option><option selected>fast2.5</option><option>fast2</option></select>
+      <span class="b part">только AirSim</span>
+    </div>
+    <div class="row">
+      <label class="t" for="drag">Сопротивление винтов k, с/м</label>
+      <input type="number" id="drag" value="0.035" step="0.005" min="0">
+      <span class="b ok">kinematic и AirSim</span>
+    </div>
+    <p class="note">Одно k на оба симулятора: 0 — «лёд», как в исходном AirSim; 0,035 — скорость гаснет за ~3 с;
+      больше — цепче, но ниже предельная скорость.</p>
+  </fieldset>
+
+  <fieldset>
+    <legend>5. Ведущий (дрон 0)</legend>
+    <div class="row"><label class="opt"><input type="radio" name="leader" value="off"> Выкл — автопилот по точкам сценария (<code>waypoints</code>) <span class="b ok">есть</span></label></div>
+    <div class="row"><label class="opt"><input type="radio" name="leader" value="hover"> Выкл — висит на месте (проверка ведомых без движения) <span class="b todo">нет</span></label></div>
+    <div class="row"><label class="opt"><input type="radio" name="leader" value="rc" checked> Пульт RadioMaster / геймпад <span class="b ok">есть</span></label>
+      <select id="mode"><option value="switch">режим — тумблером на пульте</option><option value="althold">AltHold</option><option value="acro">Acro</option></select></div>
+    <div class="row"><label class="opt"><input type="radio" name="leader" value="keyboard"> Клавиатура (WASD + стрелки) <span class="b todo">нет</span></label></div>
+    <div class="row"><label class="opt"><input type="checkbox" id="sticks"> Записывать стики пульта ~500 Гц (<code>sticks log</code>) <span class="b ok">есть</span></label></div>
+    <p class="note">Пульт проверяется полосками стиков, как в меню эксперимента (<code>PultWatcher</code>).</p>
+  </fieldset>
+</section>
+
+<section>
+  <fieldset>
+    <legend>6. Серия: повторения и перебор параметров</legend>
+    <div class="row">
+      <label class="t" for="reps">Повторений каждого варианта</label>
+      <input type="number" id="reps" value="3" min="1" max="100">
+      <label class="t" for="seed" style="min-width:auto">первый seed</label>
+      <input type="number" id="seed" value="1">
+      <span class="b todo">нет</span>
+    </div>
+    <p class="note">Seed — начальное число генератора случайных чисел: тот же seed — те же «случайные» числа.
+      Случайность у нас — шум «зрения» ведомых (<code>noise</code> в <code>visual_follow</code>/<code>flock</code>).
+      Повтор 1 идёт с seed = первый, повтор 2 — первый + 1 и т. д.: шум каждый раз другой, и по серии можно
+      посчитать среднее и разброс. Seed пишется в журнал — любой прогон в kinematic повторяется точь-в-точь.
+      В Unreal повторы различаются и при одном seed: физика и задержки RPC каждый раз немного другие.
+      Сейчас seed зашит в коде (0), поэтому повторы в kinematic одинаковы.</p>
+    <table>
+      <thead><tr><th>Параметр (путь в YAML)</th><th>Значения через запятую</th></tr></thead>
+      <tbody>
+        <tr><td><input type="text" id="p1" value="followers"></td><td><input type="text" id="v1" value="2, 4, 8"></td></tr>
+        <tr><td><input type="text" id="p2" value="followers.params.distance"></td><td><input type="text" id="v2" value="4, 6"></td></tr>
+        <tr><td><input type="text" id="p3" value=""></td><td><input type="text" id="v3" value=""></td></tr>
+      </tbody>
+    </table>
+    <div class="row">
+      <label class="opt"><input type="radio" name="combine" value="grid" checked> все сочетания</label>
+      <label class="opt"><input type="radio" name="combine" value="zip"> попарно</label>
+      <strong id="count"></strong>
+    </div>
+    <p class="note">Сейчас перебор есть только в <code>compare</code> (алгоритмы × число дронов, только kinematic).
+      Шум «зрения» ведомых задан постоянным seed — повторы в kinematic дают одно и то же. В AirSim каждый новый
+      прогон — перезапуск игры (~1 мин) или <code>client.reset()</code>, который MultiUAV пока не вызывает.</p>
+  </fieldset>
+
+  <fieldset>
+    <legend>7. Куда сохранять</legend>
+    <div class="row">
+      <label class="t" for="outdir">Папка прогона / серии</label>
+      <input type="text" id="outdir" value="runs/series_city_followers" style="min-width:260px">
+      <button type="button">Обзор…</button> <span class="b ok">прогон — есть</span> <span class="b todo">серия — нет</span>
+    </div>
+    <div class="row">
+      <label class="opt"><input type="checkbox" checked disabled> track.csv, summary.json, sim.json, копии сценария и settings.json, unreal.log, cameras.log <span class="b ok">есть</span></label>
+      <label class="opt"><input type="checkbox" id="plot" checked> картинка траекторий <span class="b ok">есть</span></label>
+      <label class="opt"><input type="checkbox" checked disabled> свой CSV на каждого дрона <span class="b todo">нет</span></label>
+      <label class="opt"><input type="checkbox"> сводная таблица серии <span class="b todo">нет</span></label>
+    </div>
+    <p class="note">Один прогон <code>start_sim.sh --out папка</code> складывает в неё всё сразу, включая стики пульта;
+      без <code>--out</code> — <code>runs/sim_&lt;время&gt;</code>. <code>sim.json</code> — с какими настройками запускали.
+      <code>scripts/demo.sh</code> остаётся короткой демонстрацией, меню его не вызывает.</p>
+  </fieldset>
+
+  <fieldset>
+    <legend>8. Команды, которые запустило бы меню</legend>
+    <pre id="cmd"></pre>
+    <div class="buttons">
+      <button class="primary" type="button">Старт серии</button>
+      <button type="button">Стоп</button>
+      <button type="button">Открыть папку</button>
+      <button type="button" id="copy">Скопировать команды</button>
+    </div>
+    <p class="note warn" id="warn"></p>
+  </fieldset>
+</section>
+</main>
+
+<script>
+const MAPS = {
+  empty:  { project:'"$HOME/Downloads/Blocks 5.8/Blocks.uproject"', map:"/Game/EmptyField",
+            note:"Карты-поля нет: нужно сделать пустой уровень с полом и научить cosys-бэкенд ставить world.buildings из YAML через simSpawnObject. Сейчас блоки из YAML есть только в kinematic.", ok:false },
+  city:   { project:'"$HOME/Downloads/Blocks 5.8/Blocks.uproject"', map:"/Game/RealCityPolygonMap",
+            note:"Город из Unity. PlayerStart — в центре, на стартовых плитах. Дома до ~30 м.", ok:true },
+  cesium: { project:'"$HOME/Downloads/Blocks 5.8/Blocks.uproject"', map:"/Game/CesiumCity",
+            note:"Нужны интернет и токен Cesium ion; тайлы грубые вблизи — летать от 50 м; 5–6 ГБ видеопамяти.", ok:true },
+  track:  { project:"~/Desktop/New_Karta_Vitali/Blocks.uproject", map:"/Game/FlyingCPP/Maps/Track_Easy",
+            note:"Другой проект Unreal (New_Karta_Vitali): меню само знает, какая карта в каком проекте.", ok:true },
+  field:  { world:"field", note:"Свой мир, запомненный на этом компьютере.", ok:true },
+  own:    { own:true, note:"", ok:true },
+};
+const WORLD = { city:"city", cesium:"cesium", track:"track" };
+const $ = id => document.getElementById(id);
+const val = name => (document.querySelector(`input[name=${name}]:checked`) || {}).value;
+
+function variants() {
+  const rows = [1,2,3].map(i => [$("p"+i).value.trim(), $("v"+i).value.split(",").map(s=>s.trim()).filter(Boolean)])
+                     .filter(([p, v]) => p && v.length);
+  if (!rows.length) return { rows, n: 1 };
+  const n = val("combine") === "grid" ? rows.reduce((a, [, v]) => a * v.length, 1)
+                                      : Math.min(...rows.map(([, v]) => v.length));
+  return { rows, n };
+}
+
+function render() {
+  const backend = val("backend"), ue = val("uemode"), leader = val("leader");
+  const m = MAPS[$("map").value];
+  $("ueBox").classList.toggle("disabled", backend !== "cosys");
+  $("mapNote").textContent = m.note;
+  const reps = +$("reps").value || 1, { rows, n } = variants();
+  const plural = (k, one, few, many) => {
+    const d = k % 10, dd = k % 100;
+    return d === 1 && dd !== 11 ? one : d >= 2 && d <= 4 && (dd < 12 || dd > 14) ? few : many;
+  };
+  const factors = [`${reps} ${plural(reps, "повторение", "повторения", "повторений")}`];
+  if (val("combine") === "grid") rows.forEach(([p, v]) => factors.push(`${v.length} (${p})`));
+  else if (rows.length) factors.push(`${n} ${plural(n, "пара", "пары", "пар")} (${rows.map(([p]) => p).join(" + ")})`);
+  $("count").textContent = `Прогонов в серии: ${factors.join(" × ")} = ${n * reps}`;
+
+  const scen = "scenarios/" + $("scenario").value, f = $("followers").value;
+  const algo = $("algo").value === "custom" ? "path/to/my_algo.py:MyAlgo" : $("algo").value;
+  const out = $("outdir").value || "runs/series";
+  const warn = [];
+  let leaderArgs = "";
+  if (leader === "off") leaderArgs = " --leader waypoints";
+  if (leader === "rc") leaderArgs = " --leader gamepad" + ($("mode").value !== "switch" ? ` --mode ${$("mode").value}` : "");
+  if (leader === "keyboard") warn.push("Ведущего с клавиатуры пока нет — нужен алгоритм keyboard в multiuav/algorithms.");
+  if (leader === "hover") warn.push("Режима «висит на месте» нет — проще всего waypoints с одной точкой над стартом.");
+  if (!m.ok) warn.push("Карты «пустое поле + YAML» пока нет.");
+  if (reps > 1 || rows.length) warn.push("Серий пока нет: меню развернуло бы их в цикл ниже; в AirSim каждый прогон заново открывает Unreal (~20–60 с).");
+
+  $("ownBox").style.display = $("map").value === "own" ? "" : "none";
+  $("mapBadge").className = "b " + (m.ok ? "ok" : "todo");
+  $("mapBadge").textContent = m.ok ? "есть" : "нет";
+
+  const lines = ["cd ~/Documents/multiuav_svetlakov"];
+  let common = ` --backend ${backend} --followers ${f} --algorithm ${algo} --rotor-drag ${$("drag").value}${leaderArgs}`;
+  if (backend === "cosys") {
+    const key = $("map").value;
+    common += m.own ? ` --project ${$("ownProject").value} --map ${$("ownMap").value}`
+                    : ` --world ${m.world || WORLD[key] || key}`;
+    common += ` --model ${$("model").value} --quality ${$("quality").value}`;
+    if (ue === "editor") common += " --editor";
+    if ($("fullscreen").checked) common += " --fullscreen";
+  }
+  if (!$("plot").checked) common += " --no-plot";
+  if ($("sticks").checked && leader === "rc") common += " --sticks";
+  const runOne = (dir) => `scripts/start_sim.sh ${scen}${common} --out ${dir}`;
+  if (m.own) lines.push(`scripts/start_sim.sh --save-world ${$("ownName").value} --project ${$("ownProject").value} --map ${$("ownMap").value}   # по кнопке «Запомнить»`);
+  if (n * reps > 1) {
+    lines.push("", "# серия (сейчас — вручную, циклом):");
+    const loopVars = rows.map(([p, v], i) => `for v${i+1} in ${v.join(" ")}; do`).join(" ");
+    lines.push(`for rep in $(seq ${$("seed").value} $((${$("seed").value}+${reps}-1))); do ${loopVars}`,
+               `  ${runOne(out + "/" + rows.map((_, i) => "${v" + (i+1) + "}").join("_") + (rows.length ? "_" : "") + "rep${rep}")}`,
+               `done${rows.map(() => "; done").join("")}`,
+               "# параметры из таблицы пока нельзя передать флагами (кроме followers) — нужен ключ --set путь=значение или блок sweep: в YAML");
+  } else {
+    lines.push(runOne(out));
+  }
+  $("cmd").textContent = lines.join("\n");
+  $("warn").textContent = warn.join(" ");
+}
+document.querySelectorAll("input, select").forEach(e => e.addEventListener("input", render));
+$("copy").addEventListener("click", () => navigator.clipboard && navigator.clipboard.writeText($("cmd").textContent));
+render();
+</script>
+</body>
+</html>

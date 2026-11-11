@@ -31,5 +31,9 @@ class SimBackend(ABC):
     def message(self, text: str) -> None:
         """Показать оператору строку состояния в окне симулятора (если оно есть)."""
 
+    def reset(self, drone_id: int, position, heading: float) -> None:
+        """Поставить дрон в точку (north, east, alt) носом по курсу heading, скорость 0."""
+        raise NotImplementedError(f"{type(self).__name__} не умеет переставлять дрон")
+
     def close(self) -> None:
         pass

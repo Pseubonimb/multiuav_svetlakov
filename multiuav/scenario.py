@@ -12,6 +12,9 @@ import yaml
 
 from .control import ControlLimits
 
+# Сопротивление винтов по умолчанию, с/м: на висении k·g ≈ 0.34 1/с — скорость гаснет за ~3 с.
+DEFAULT_ROTOR_DRAG = 0.035
+
 
 @dataclass(frozen=True)
 class AlgorithmSpec:
@@ -99,10 +102,21 @@ class Scenario:
     # Коэффициенты (P, I, D) регулятора угловых скоростей SimpleFlight, одни на крен, тангаж
     # и рысканье. None — как в плагине (generic: P 0.25; fast<k>: 0.25/k).
     rate_gains: tuple[float, float, float] | None = None
-    # Сопротивление винтов в Cosys, с/м: сила -k * тяга * скорость поперёк оси винтов. Без него
-    # (0, как в исходном AirSim) дрон скользит, как по льду. Нужен патч плагина 04. В kinematic
-    # похожее сопротивление есть всегда (drag 0.35 1/с ≈ k 0.036 на висении).
-    rotor_drag: float = 0.0
+    # Сопротивление винтов, с/м: сила -k * тяга * скорость поперёк оси винтов. Одно k на оба
+    # симулятора: в Cosys — ключ RotorDrag (патч плагина 04), в kinematic — та же формула.
+    # 0 — как в исходном AirSim: дрон скользит, как по льду.
+    rotor_drag: float = DEFAULT_ROTOR_DRAG
+    # True — менеджер сам поднимает дронов на altitude (takeoffAsync + moveToZAsync).
+    # False — как в FPV: дрон стоит на земле, управление сразу у пульта, взлетает пилот.
+    takeoff: bool = True
+    # Надписи о столкновениях в окне Unreal (красная строка и «COLLISION #N» над дроном).
+    collision_alarms: bool = True
+    # Вид в окне Unreal при старте: FlyWithMe (камера сзади), Fpv (из дрона), Manual …
+    view_mode: str = "FlyWithMe"
+    # Положение FPV-камеры (front_center) от центра дрона, м, NED: {x вперёд, y вправо, z вниз,
+    # pitch_deg вверх}. None — как в модели AirSim (камера впереди корпуса и при ударе о стену
+    # «заглядывает» за неё).
+    fpv_camera: dict | None = None
 
     def start_positions(self) -> list[np.ndarray]:
         """Стартовые точки NED: ведущий впереди, остальные колонной позади него."""
@@ -154,6 +168,7 @@ class Scenario:
                 max_climb=float(limits.get("max_climb", 3.0)),
                 max_rate=math.radians(float(limits.get("max_rate_deg", 200.0))),
                 hover_throttle=float(limits.get("hover_throttle", 0.5)),
+                idle_throttle=float(limits.get("idle_throttle", 0.0)),
             ),
             show_rc=bool(data.get("show_rc", False)),
             stop_on_collision=bool(data.get("stop_on_collision", True)),
@@ -161,5 +176,9 @@ class Scenario:
                                      for k, v in perception.items()}),
             model=str(data.get("model", "generic")).lower(),
             rate_gains=_rate_gains(data.get("rate_gains")),
-            rotor_drag=float(data.get("rotor_drag", 0.0)),
+            rotor_drag=float(data.get("rotor_drag", DEFAULT_ROTOR_DRAG)),
+            takeoff=bool(data.get("takeoff", True)),
+            collision_alarms=bool(data.get("collision_alarms", True)),
+            view_mode=str(data.get("view_mode", "FlyWithMe")),
+            fpv_camera=data.get("fpv_camera"),
         )

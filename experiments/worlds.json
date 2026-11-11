@@ -1,0 +1,24 @@
+{
+  "_comment": "Миры Unreal для python -m multiuav sim --world ИМЯ. Свои миры (любой .uproject на этом компьютере) — sim --save-world ИМЯ --project … --map …: они пишутся в experiments/local.json (не в git) и перекрывают эти.",
+  "engine": "~/Downloads/UnrealEngine5/Engine/Binaries/Linux/UnrealEditor",
+  "worlds": {
+    "city": {
+      "title": "Город из Unity",
+      "project": "~/Downloads/Blocks 5.8/Blocks.uproject",
+      "map": "/Game/RealCityPolygonMap",
+      "scenario": "scenarios/unity_city.yaml"
+    },
+    "cesium": {
+      "title": "Реальный мир, Google 3D Tiles: Googleplex",
+      "project": "~/Downloads/Blocks 5.8/Blocks.uproject",
+      "map": "/Game/CesiumCity",
+      "scenario": "scenarios/cesium_demo.yaml"
+    },
+    "track": {
+      "title": "Трасса-коридор",
+      "project": "~/Desktop/New_Karta_Vitali/Blocks.uproject",
+      "map": "/Game/FlyingCPP/Maps/Track_Easy",
+      "scenario": "scenarios/rc_single.yaml"
+    }
+  }
+}

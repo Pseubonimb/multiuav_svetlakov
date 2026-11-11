@@ -11,6 +11,7 @@
 
 | `03-propeller-drag-area.patch` | `Source/AirLib/include/vehicles/multirotor/MultiRotorPhysicsBody.hpp`: площадь винта в сопротивлении воздуха `π·D²/4` вместо `π·D²` | Площадь 4 винтов была завышена в 4 раза — сверху дрон был как под зонтиком 0,68 м²: вязкий разгон и торможение, чем сильнее наклон, тем ниже предельная скорость. На висении (скорость 0) ничего не меняет, регуляторы не затрагивает | **Да** |
 | `04-rotor-drag.patch` | `AirSimSettings.hpp` (ключ `"RotorDrag"` у дрона), `MultiRotorParams.hpp`, `PhysicsBody.hpp`, `MultiRotorPhysicsBody.hpp`, `FastPhysicsEngine.hpp`: сила сопротивления винтов `−k · тяга · скорость поперёк оси винтов` | В исходном AirSim её нет, только сопротивление корпуса ~v² — дрон скользит, как по льду (с 15 м/с катится 145 м). `"RotorDrag": 0.035` (`rotor_drag: 0.035` в сценарии) — 31 м | **Да**. Без ключа (`0`) ничего не меняет. Накладывать после 02 |
+| `06-crash-realism.patch` | `Source/AirLib/include/physics/FastPhysicsEngine.hpp`: «ground lock» (выровнять и остановить дрон на земле) — только если дрон стоит примерно ровно, не перевёрнутым; после удара дрон отталкивается от препятствия на 0,02 м за каждый м/с скорости удара (до 0,3 м) | Раньше при ударе о пол или крышу препятствия, даже перевёрнутый, дрон сам вставал ровно — нереалистично; камера, выступающая вперёд корпуса, оказывалась в стене и видела сквозь неё | Да (эксперимент) |
 | `05-toggle-log-messages.patch` | `Source/SimHUD/SimHUD.h`, `SimHUD.cpp`: клавиша **F2** показывает и прячет отладочные строки в левом верхнем углу | `multiuav settings` пишет `"LogMessagesVisible": false` — строки скрыты с самого старта, F2 их возвращает. Без патча вернуть их можно только `settings --messages` и перезапуском Play | Да, если строки скрыты |
 
 Подробности и замеры — `docs/MultiUAV-Cosys-UE5_Ubuntu22_experience.md`, разделы 18, 20–24.
@@ -24,6 +25,7 @@ patch -p1 < ~/Documents/multiuav_svetlakov/airsim_patches/02-fast-model.patch   
 patch -p1 < ~/Documents/multiuav_svetlakov/airsim_patches/03-propeller-drag-area.patch
 patch -p1 < ~/Documents/multiuav_svetlakov/airsim_patches/04-rotor-drag.patch
 patch -p1 < ~/Documents/multiuav_svetlakov/airsim_patches/05-toggle-log-messages.patch
+patch -p1 < ~/Documents/multiuav_svetlakov/airsim_patches/06-crash-realism.patch   # после 04
 ```
 
 Затем закрыть Unreal и пересобрать (UBA должен быть отключён, см. раздел 7 файла опыта):
@@ -36,6 +38,7 @@ patch -p1 < ~/Documents/multiuav_svetlakov/airsim_patches/05-toggle-log-messages
 
 ```bash
 cd "$HOME/Downloads/Blocks 5.8/Plugins/AirSim"
+patch -p1 -R < ~/Documents/multiuav_svetlakov/airsim_patches/06-crash-realism.patch
 patch -p1 -R < ~/Documents/multiuav_svetlakov/airsim_patches/05-toggle-log-messages.patch
 patch -p1 -R < ~/Documents/multiuav_svetlakov/airsim_patches/04-rotor-drag.patch
 patch -p1 -R < ~/Documents/multiuav_svetlakov/airsim_patches/03-propeller-drag-area.patch
