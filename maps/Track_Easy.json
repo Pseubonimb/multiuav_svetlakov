@@ -6,7 +6,6 @@
     -17928.4,
     141.1
   ],
-  "player_start_yaw_deg": 90.0,
   "floor_alt": -0.92,
   "occlusion": {
     "volume": "PostProcessVolume_1",
@@ -20,40 +19,6 @@
     "color": "#969696",
     "image": null
   },
-  "centerline": [
-    [
-      0,
-      -15
-    ],
-    [
-      365,
-      -15
-    ],
-    [
-      365,
-      555
-    ],
-    [
-      -545,
-      555
-    ],
-    [
-      -545,
-      200
-    ],
-    [
-      -15,
-      200
-    ],
-    [
-      -15,
-      -15
-    ],
-    [
-      0,
-      -15
-    ]
-  ],
   "walls": [
     [
       -5.42,
@@ -3174,143 +3139,63 @@
       -1.0,
       353.86,
       8.76
+    ],
+    [
+      372.54,
+      -20.73,
+      373.54,
+      -10.97
+    ],
+    [
+      -25.17,
+      -20.91,
+      -24.17,
+      -11.16
+    ],
+    [
+      50.42,
+      -5.52,
+      51.42,
+      4.24
+    ],
+    [
+      50.42,
+      -0.44,
+      51.42,
+      9.32
+    ],
+    [
+      -4.37,
+      38.45,
+      5.39,
+      39.45
+    ],
+    [
+      364.92,
+      564.01,
+      374.68,
+      565.01
+    ],
+    [
+      -557.27,
+      189.26,
+      -556.27,
+      199.02
     ]
   ],
-  "zones": [
-    {
-      "index": 0,
-      "name": "TriggerBox_1",
-      "label": "TriggerBox",
-      "center": {
-        "north": 186.682,
-        "east": -13.633,
-        "alt": 4.755
-      },
-      "along_m": 186.7,
-      "half_size": {
-        "north": 8.002,
-        "east": 9.7,
-        "up": 13.927
-      }
-    },
-    {
-      "index": 1,
-      "name": "TriggerBox_6",
-      "label": "TriggerBox2",
-      "center": {
-        "north": 363.362,
-        "east": 185.468,
-        "alt": 4.755
-      },
-      "along_m": 565.5,
-      "half_size": {
-        "north": 7.327,
-        "east": 9.7,
-        "up": 13.927
-      }
-    },
-    {
-      "index": 2,
-      "name": "TriggerBox_7",
-      "label": "TriggerBox3",
-      "center": {
-        "north": 312.365,
-        "east": 554.232,
-        "alt": 4.755
-      },
-      "along_m": 987.6,
-      "half_size": {
-        "north": 9.7,
-        "east": 8.002,
-        "up": 13.927
-      }
-    },
-    {
-      "index": 3,
-      "name": "TriggerBox_8",
-      "label": "TriggerBox4",
-      "center": {
-        "north": -157.833,
-        "east": 554.232,
-        "alt": 4.755
-      },
-      "along_m": 1457.8,
-      "half_size": {
-        "north": 8.002,
-        "east": 9.7,
-        "up": 13.927
-      }
-    },
-    {
-      "index": 4,
-      "name": "TriggerBox_9",
-      "label": "TriggerBox5",
-      "center": {
-        "north": -521.915,
-        "east": 554.431,
-        "alt": 4.755
-      },
-      "along_m": 1821.9,
-      "half_size": {
-        "north": 9.408,
-        "east": 8.897,
-        "up": 13.927
-      }
-    },
-    {
-      "index": 5,
-      "name": "TriggerBox_10",
-      "label": "TriggerBox6",
-      "center": {
-        "north": -546.726,
-        "east": 366.388,
-        "alt": 4.755
-      },
-      "along_m": 2033.6,
-      "half_size": {
-        "north": 7.329,
-        "east": 9.701,
-        "up": 13.927
-      }
-    },
-    {
-      "index": 6,
-      "name": "TriggerBox_11",
-      "label": "TriggerBox7",
-      "center": {
-        "north": -257.772,
-        "east": 200.115,
-        "alt": 4.755
-      },
-      "along_m": 2487.2,
-      "half_size": {
-        "north": 9.701,
-        "east": 8.004,
-        "up": 13.927
-      }
-    }
-  ],
+  "zones": [],
   "directions": {
-    "cw": {
-      "title": "по часовой: от старта на север",
+    "forward": {
+      "title": "прямое: от старта на север, ворота 1 → 12",
       "start_heading_deg": 0.0,
-      "zones": [
-        0,
-        1,
-        2,
-        3,
-        4,
-        5,
-        6
-      ],
+      "zones": [],
       "gates": [
         {
           "index": 0,
-          "name": "MU_GateCW01",
-          "actor": "StaticMeshActor_535",
-          "after_zone": 0,
+          "name": "MU_Gate01",
+          "actor": "StaticMeshActor_389",
           "center": {
-            "north": 196.185,
+            "north": 190.0,
             "east": -13.633,
             "alt": 4.08
           },
@@ -3320,12 +3205,11 @@
         },
         {
           "index": 1,
-          "name": "MU_GateCW02",
-          "actor": "StaticMeshActor_630",
-          "after_zone": 1,
+          "name": "MU_Gate02",
+          "actor": "StaticMeshActor_394",
           "center": {
             "north": 363.362,
-            "east": 196.668,
+            "east": 25.0,
             "alt": 4.08
           },
           "heading_deg": 90.0,
@@ -3334,40 +3218,37 @@
         },
         {
           "index": 2,
-          "name": "MU_GateCW03",
-          "actor": "StaticMeshActor_681",
-          "after_zone": 2,
+          "name": "MU_Gate03",
+          "actor": "StaticMeshActor_399",
           "center": {
-            "north": 301.165,
-            "east": 554.232,
+            "north": 363.362,
+            "east": 276.0,
             "alt": 4.08
           },
-          "heading_deg": 180.0,
+          "heading_deg": 90.0,
           "width_m": 4.0,
           "height_m": 4.0
         },
         {
           "index": 3,
-          "name": "MU_GateCW04",
-          "actor": "StaticMeshActor_729",
-          "after_zone": 3,
+          "name": "MU_Gate04",
+          "actor": "StaticMeshActor_404",
           "center": {
-            "north": -167.335,
-            "east": 554.232,
+            "north": 363.362,
+            "east": 478.0,
             "alt": 4.08
           },
-          "heading_deg": 180.0,
+          "heading_deg": 90.0,
           "width_m": 4.0,
           "height_m": 4.0
         },
         {
           "index": 4,
-          "name": "MU_GateCW05",
-          "actor": "StaticMeshActor_744",
-          "after_zone": 4,
+          "name": "MU_Gate05",
+          "actor": "StaticMeshActor_459",
           "center": {
-            "north": -532.824,
-            "east": 554.431,
+            "north": 243.0,
+            "east": 554.232,
             "alt": 4.08
           },
           "heading_deg": 180.0,
@@ -3376,12 +3257,37 @@
         },
         {
           "index": 5,
-          "name": "MU_GateCW06",
-          "actor": "StaticMeshActor_794",
-          "after_zone": 5,
+          "name": "MU_Gate06",
+          "actor": "StaticMeshActor_465",
+          "center": {
+            "north": -96.0,
+            "east": 554.232,
+            "alt": 4.08
+          },
+          "heading_deg": 180.0,
+          "width_m": 4.0,
+          "height_m": 4.0
+        },
+        {
+          "index": 6,
+          "name": "MU_Gate07",
+          "actor": "StaticMeshActor_470",
+          "center": {
+            "north": -488.0,
+            "east": 554.232,
+            "alt": 4.08
+          },
+          "heading_deg": 180.0,
+          "width_m": 4.0,
+          "height_m": 4.0
+        },
+        {
+          "index": 7,
+          "name": "MU_Gate08",
+          "actor": "StaticMeshActor_475",
           "center": {
             "north": -546.726,
-            "east": 355.187,
+            "east": 380.0,
             "alt": 4.08
           },
           "heading_deg": 270.0,
@@ -3389,41 +3295,96 @@
           "height_m": 4.0
         },
         {
-          "index": 6,
-          "name": "MU_GateCW07",
-          "actor": "StaticMeshActor_820",
-          "after_zone": 6,
+          "index": 8,
+          "name": "MU_Gate09",
+          "actor": "StaticMeshActor_480",
           "center": {
-            "north": -246.571,
+            "north": -504.0,
             "east": 200.115,
             "alt": 4.08
           },
           "heading_deg": 0.0,
+          "width_m": 4.0,
+          "height_m": 4.0
+        },
+        {
+          "index": 9,
+          "name": "MU_Gate10",
+          "actor": "StaticMeshActor_485",
+          "center": {
+            "north": -255.0,
+            "east": 200.115,
+            "alt": 4.08
+          },
+          "heading_deg": 0.0,
+          "width_m": 4.0,
+          "height_m": 4.0
+        },
+        {
+          "index": 10,
+          "name": "MU_Gate11",
+          "actor": "StaticMeshActor_490",
+          "center": {
+            "north": -30.6,
+            "east": 184.0,
+            "alt": 4.08
+          },
+          "heading_deg": 310.4,
+          "width_m": 4.0,
+          "height_m": 4.0
+        },
+        {
+          "index": 11,
+          "name": "MU_Gate12",
+          "actor": "StaticMeshActor_495",
+          "center": {
+            "north": -14.916,
+            "east": 47.0,
+            "alt": 4.08
+          },
+          "heading_deg": 270.0,
           "width_m": 4.0,
           "height_m": 4.0
         }
       ]
     },
-    "ccw": {
-      "title": "против часовой: от старта на восток",
+    "reverse": {
+      "title": "обратное: от старта на восток, ворота 12 → 1",
       "start_heading_deg": 90.0,
-      "zones": [
-        6,
-        5,
-        4,
-        3,
-        2,
-        1,
-        0
-      ],
+      "zones": [],
       "gates": [
         {
           "index": 0,
-          "name": "MU_GateCCW01",
-          "actor": "StaticMeshActor_831",
-          "after_zone": 0,
+          "name": "MU_Gate12",
+          "actor": "StaticMeshActor_495",
           "center": {
-            "north": -268.974,
+            "north": -14.916,
+            "east": 47.0,
+            "alt": 4.08
+          },
+          "heading_deg": 90.0,
+          "width_m": 4.0,
+          "height_m": 4.0
+        },
+        {
+          "index": 1,
+          "name": "MU_Gate11",
+          "actor": "StaticMeshActor_490",
+          "center": {
+            "north": -30.6,
+            "east": 184.0,
+            "alt": 4.08
+          },
+          "heading_deg": 130.4,
+          "width_m": 4.0,
+          "height_m": 4.0
+        },
+        {
+          "index": 2,
+          "name": "MU_Gate10",
+          "actor": "StaticMeshActor_485",
+          "center": {
+            "north": -255.0,
             "east": 200.115,
             "alt": 4.08
           },
@@ -3432,13 +3393,25 @@
           "height_m": 4.0
         },
         {
-          "index": 1,
-          "name": "MU_GateCCW02",
-          "actor": "StaticMeshActor_837",
-          "after_zone": 1,
+          "index": 3,
+          "name": "MU_Gate09",
+          "actor": "StaticMeshActor_480",
+          "center": {
+            "north": -504.0,
+            "east": 200.115,
+            "alt": 4.08
+          },
+          "heading_deg": 180.0,
+          "width_m": 4.0,
+          "height_m": 4.0
+        },
+        {
+          "index": 4,
+          "name": "MU_Gate08",
+          "actor": "StaticMeshActor_475",
           "center": {
             "north": -546.726,
-            "east": 377.589,
+            "east": 380.0,
             "alt": 4.08
           },
           "heading_deg": 90.0,
@@ -3446,55 +3419,51 @@
           "height_m": 4.0
         },
         {
-          "index": 2,
-          "name": "MU_GateCCW03",
-          "actor": "StaticMeshActor_842",
-          "after_zone": 2,
-          "center": {
-            "north": -511.007,
-            "east": 554.232,
-            "alt": 4.08
-          },
-          "heading_deg": 0.0,
-          "width_m": 4.0,
-          "height_m": 4.0
-        },
-        {
-          "index": 3,
-          "name": "MU_GateCCW04",
-          "actor": "StaticMeshActor_847",
-          "after_zone": 3,
-          "center": {
-            "north": -148.331,
-            "east": 554.232,
-            "alt": 4.08
-          },
-          "heading_deg": 0.0,
-          "width_m": 4.0,
-          "height_m": 4.0
-        },
-        {
-          "index": 4,
-          "name": "MU_GateCCW05",
-          "actor": "StaticMeshActor_852",
-          "after_zone": 4,
-          "center": {
-            "north": 323.565,
-            "east": 554.232,
-            "alt": 4.08
-          },
-          "heading_deg": 0.0,
-          "width_m": 4.0,
-          "height_m": 4.0
-        },
-        {
           "index": 5,
-          "name": "MU_GateCCW06",
-          "actor": "StaticMeshActor_857",
-          "after_zone": 5,
+          "name": "MU_Gate07",
+          "actor": "StaticMeshActor_470",
+          "center": {
+            "north": -488.0,
+            "east": 554.232,
+            "alt": 4.08
+          },
+          "heading_deg": 0.0,
+          "width_m": 4.0,
+          "height_m": 4.0
+        },
+        {
+          "index": 6,
+          "name": "MU_Gate06",
+          "actor": "StaticMeshActor_465",
+          "center": {
+            "north": -96.0,
+            "east": 554.232,
+            "alt": 4.08
+          },
+          "heading_deg": 0.0,
+          "width_m": 4.0,
+          "height_m": 4.0
+        },
+        {
+          "index": 7,
+          "name": "MU_Gate05",
+          "actor": "StaticMeshActor_459",
+          "center": {
+            "north": 243.0,
+            "east": 554.232,
+            "alt": 4.08
+          },
+          "heading_deg": 0.0,
+          "width_m": 4.0,
+          "height_m": 4.0
+        },
+        {
+          "index": 8,
+          "name": "MU_Gate04",
+          "actor": "StaticMeshActor_404",
           "center": {
             "north": 363.362,
-            "east": 174.268,
+            "east": 478.0,
             "alt": 4.08
           },
           "heading_deg": 270.0,
@@ -3502,12 +3471,37 @@
           "height_m": 4.0
         },
         {
-          "index": 6,
-          "name": "MU_GateCCW07",
-          "actor": "StaticMeshActor_862",
-          "after_zone": 6,
+          "index": 9,
+          "name": "MU_Gate03",
+          "actor": "StaticMeshActor_399",
           "center": {
-            "north": 177.18,
+            "north": 363.362,
+            "east": 276.0,
+            "alt": 4.08
+          },
+          "heading_deg": 270.0,
+          "width_m": 4.0,
+          "height_m": 4.0
+        },
+        {
+          "index": 10,
+          "name": "MU_Gate02",
+          "actor": "StaticMeshActor_394",
+          "center": {
+            "north": 363.362,
+            "east": 25.0,
+            "alt": 4.08
+          },
+          "heading_deg": 270.0,
+          "width_m": 4.0,
+          "height_m": 4.0
+        },
+        {
+          "index": 11,
+          "name": "MU_Gate01",
+          "actor": "StaticMeshActor_389",
+          "center": {
+            "north": 190.0,
             "east": -13.633,
             "alt": 4.08
           },

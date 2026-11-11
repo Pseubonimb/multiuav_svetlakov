@@ -2,7 +2,7 @@
 
   hard   /Game/FlyingCPP/Maps/FlyingExampleMap — исходная карта (с заглушками тупиков)
   medium /Game/FlyingCPP/Maps/Track_Medium     — без препятствий, с перепадами высоты
-  easy   /Game/FlyingCPP/Maps/Track_Easy       — плоский коридор, только ворота
+  (лёгкие уровни — tools/unreal/easy_tracks.py)
 
 Запуск (Unreal без окна; обычно через python -m multiuav track variants):
 
@@ -28,8 +28,12 @@ import unreal
 SOURCE = "/Game/FlyingCPP/Maps/FlyingExampleMap"
 VARIANTS = {
     "medium": "/Game/FlyingCPP/Maps/Track_Medium",
-    "easy": "/Game/FlyingCPP/Maps/Track_Easy",
 }
+# Лёгкие уровни (Track_Easy, …_Mirror, …_Reverse) делает tools/unreal/easy_tracks.py
+# из Track_Easy, которую правили вручную, — здесь их не трогаем.
+#: Тонкие стены на всю высоту, но не на всю ширину — куски стен стартовой коробки и внешних
+#: стен углов, а не окошки (без них в стенах были дыры, 11.11).
+KEEP_LABELS = {"Cube778", "Cube746", "Cube756", "Cube738", "Cube757", "Cube530", "Cube137"}
 CENTERLINE = [(0, -15), (365, -15), (365, 555), (-545, 555), (-545, 200), (-15, 200),
               (-15, -15), (0, -15)]
 LEVELS_M = (995.0, 1335.0)   # «многоэтажка» вдоль кольца по часовой, м от старта
@@ -85,6 +89,8 @@ def classify(actor, start, floor):
         return "levels"
     if "cylinders" in folder or folder.endswith("Ground/Gates"):
         return "obstacle"
+    if actor.get_actor_label() in KEEP_LABELS:
+        return None
     if "loners" in folder:
         full_height = z0 < 1.0 and z1 > FULL_HEIGHT_M
         full_width = width >= FULL_WIDTH_M or thick > 1.5

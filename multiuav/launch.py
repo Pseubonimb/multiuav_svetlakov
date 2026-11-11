@@ -125,8 +125,7 @@ def run_launch(config: Path, participant: str | None = None, backend_name: str =
     cfg["direction"] = cfg.get("direction", "cw")
     track = Track.load(cfg["track"], cfg["direction"]) if cfg.get("track") else None
     cfg["occlusion_ms"] = parse_occlusion(cfg.get("occlusion_ms", []))
-    zones = len(track.zones) if track else 0
-    cfg["occlusion_ms_by_zone"] = expand_cyclic(cfg["occlusion_ms"], zones)
+    cfg["occlusion_ms_by_gate"] = expand_cyclic(cfg["occlusion_ms"], len(track.gates) if track else 0)
     cfg["backend"] = backend_name
     cfg["started_ms"] = time.time_ns() // 1_000_000
     cfg["started"] = local_time(cfg["started_ms"])
@@ -213,7 +212,7 @@ def run_launch(config: Path, participant: str | None = None, backend_name: str =
                 return game is None or game.poll() is None
 
             occluder = screen = None
-            if track is not None and track.zones:
+            if track is not None and track.gates:
                 from .experiment import _CsvLog
                 from .occlusion import EVENT_COLUMNS, CosysScreen, LogScreen, Occluder
 
@@ -226,7 +225,9 @@ def run_launch(config: Path, participant: str | None = None, backend_name: str =
                         raise RuntimeError(f"затемнение не готово: {screen.error}")
                 else:
                     screen = LogScreen(events)
-                occluder = Occluder(track, cfg["occlusion_ms_by_zone"], screen)
+                occluder = Occluder(track, cfg["occlusion_ms_by_gate"], screen,
+                                    int(cfg.get("occlusion_margin_ms", 150)),
+                                    int(cfg.get("occlusion_cap_ms", 3000)))
             recorder = TrialRecorder(out, track, duration, reset_requests, on_tick, alive, occluder)
             backend = _backend(backend_name)
             states = backend.states
@@ -315,8 +316,12 @@ def _park_other_gates(cfg: dict) -> None:
     from .track import gate_actors
 
     data = json.loads(Path(cfg["track"]).read_text(encoding="utf-8"))
-    other = "ccw" if cfg["direction"] == "cw" else "cw"
-    names = gate_actors(data, other)
+    dirs = list(data.get("directions", {}))
+    mine = Track.direction_key(data, cfg["direction"])
+    keep = set(gate_actors(data, mine))
+    # Ворота другого направления — только если это другие объекты (на лёгких трассах одна
+    # рамка на оба направления — убирать нечего).
+    names = [n for d in dirs if d != mine for n in gate_actors(data, d) if n not in keep]
     if not names:
         return
     import cosysairsim as airsim
@@ -327,8 +332,8 @@ def _park_other_gates(cfg: dict) -> None:
         pose = airsim.Pose(airsim.Vector3r(0.0, 50.0 * k, 9000.0), airsim.Quaternionr())
         if not client.simSetObjectPose(name, pose, True):
             status(f"не удалось убрать ворота {name} другого направления")
-    title = data.get("directions", {}).get(cfg["direction"], {}).get("title", cfg["direction"])
-    status(f"направление: {title}; ворота другого направления убраны")
+    title = data.get("directions", {}).get(mine, {}).get("title", mine)
+    status(f"направление: {title}" + ("; ворота другого направления убраны" if names else ""))
 
 
 def _backend(name: str):

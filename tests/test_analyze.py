@@ -227,3 +227,52 @@ def test_chrony_tracking_parse():
     assert t["ref_name"] == "192.168.10.1" and t["stratum"] == 4
     assert t["system_time_s"] == pytest.approx(8.4e-7) and t["leap_status"] == "Normal"
     assert t["root_dispersion_s"] == pytest.approx(7.8)
+
+
+def _fly_occluder(durations, speeds, cap_ms=3000):
+    """Прямо на восток по воротам G1 (70 м) и G2 (150 м); speeds(t) — скорость, м/с."""
+    import time as _time
+
+    import numpy as np
+
+    from multiuav.occlusion import EVENT_COLUMNS, LogScreen, Occluder
+
+    class Log:
+        def __init__(self):
+            self.rows = []
+
+        def row(self, values, sync=False):
+            self.rows.append(dict(zip(EVENT_COLUMNS, values)))
+
+    log = Log()
+    occ = Occluder(Track.from_dict(TRACK), durations, LogScreen(log), margin_ms=150, cap_ms=cap_ms)
+    t0 = _time.monotonic()
+    east, t = 0.0, 0.0
+    while east < 160:
+        v = speeds(t)
+        occ.step(np.array([0.0, east, 5.0]), np.array([0.0, v, 0.0]), t0 + t)
+        east += v * 0.05
+        t += 0.05
+    occ.screen.close()
+    return log.rows
+
+
+def test_occlusion_time_to_gate():
+    rows = _fly_occluder([500, 0], lambda t: 10.0)
+    assert len(rows) == 1  # G2 — «ловушка», без затемнения
+    r = rows[0]
+    assert r["gate_name"] == "G1" and r["end"] == "пролёт ворот" and r["planned_ms"] == 500
+    assert r["blind_before_gate_ms"] == pytest.approx(500, abs=15)  # погасло за 500 мс до ворот
+    assert r["actual_ms"] == pytest.approx(650, abs=20)  # и открылось через 150 мс после
+
+
+def test_occlusion_holds_until_gate_when_pilot_slows():
+    # погасло на 10 м/с за 500 мс, дальше пилот тормозит до 2 м/с — экран не открывается до ворот
+    rows = _fly_occluder([500, 0], lambda t: 10.0 if t < 6.5 else 2.0)
+    r = rows[0]
+    assert r["end"] == "пролёт ворот" and r["blind_before_gate_ms"] > 1500
+
+
+def test_occlusion_cap():
+    rows = _fly_occluder([500, 0], lambda t: 10.0 if t < 6.5 else 1.5, cap_ms=1000)
+    assert rows[0]["actual_ms"] == pytest.approx(1000, abs=20)

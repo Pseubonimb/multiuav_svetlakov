@@ -236,7 +236,7 @@ def cmd_track(args) -> None:
 
     def summary(level_cfg: dict) -> None:
         data = json.loads(Path(level_cfg["track"]).read_text(encoding="utf-8"))
-        print(f"Записано {level_cfg['track']} ({level_cfg['map']}): зон {len(data['zones'])}")
+        print(f"Записано {level_cfg['track']} ({level_cfg['map']})")
         for d in data.get("directions", {}).values():
             print(f" {d['title']}:")
             for g in d["gates"]:
@@ -247,13 +247,28 @@ def cmd_track(args) -> None:
     if args.action == "variants":
         # Копии карты «сложного» уровня без препятствий / без «многоэтажки», затем их трассы.
         unreal_script("make_variants.py", "", "variants")
-        for level in ("medium", "easy"):
+        for level in ("medium",):
             lc = apply_level(load_config(args.config), level)
             unreal_script("friday_track.py", f"--export-only --map {lc['map']} --out {Path(lc['track']).resolve()}",
                           f"export_{level}")
             summary(lc)
-        print("Уровни: easy — Track_Easy, medium — Track_Medium, hard — исходная карта. "
-              "Подробности, что убрано: runs/track_variants.json")
+        print("Средний уровень пересобран из сложного. Подробности, что убрано: "
+              "runs/track_variants.json. Лёгкие трассы — python -m multiuav track easy")
+        return
+    easy = str(cfg.get("level", "")).startswith("easy")
+    if args.action == "easy":
+        # Три лёгкие трассы из Track_Easy: 12 ворот по схеме, зеркальная, старт после 7-х.
+        unreal_script("easy_tracks.py", "", "easy")
+        for level in ("easy1", "easy2", "easy3"):
+            summary(apply_level(load_config(args.config), level))
+        return
+    if easy and args.action == "reset":
+        raise SystemExit("У лёгких уровней ворота ставит python -m multiuav track easy "
+                         "(все три карты заново из Track_Easy)")
+    if easy:
+        unreal_script("easy_tracks.py", f"--export-only --map {cfg['map']} --out {Path(cfg['track']).resolve()}",
+                      args.action)
+        summary(cfg)
         return
     extra = (f"--export-only --map {cfg['map']} --out {Path(cfg['track']).resolve()}"
              if args.action == "export" else
@@ -368,12 +383,13 @@ def main(argv: list[str] | None = None) -> None:
     analyze.set_defaults(func=cmd_analyze)
 
     track = sub.add_parser("track", help="ворота и зоны карты эксперимента")
-    track.add_argument("action", choices=["edit", "export", "reset", "save", "restore", "variants"],
+    track.add_argument("action", choices=["edit", "export", "reset", "save", "restore", "variants", "easy"],
                        help="edit — открыть карту в редакторе, export — выгрузить ворота и зоны "
                             "в maps/…json после правки, reset — поставить ворота заново по умолчанию, "
                             "save — запомнить карту и json как эталон, restore — вернуть эталон, "
-                            "variants — заново сделать лёгкий и средний уровни из сложного")
-    track.add_argument("--level", choices=["easy", "medium", "hard"],
+                            "variants — заново сделать средний уровень из сложного, "
+                            "easy — три лёгкие трассы из Track_Easy")
+    track.add_argument("--level", choices=["easy1", "easy2", "easy3", "medium", "hard"],
                        help="уровень сложности (по умолчанию — из experiments/friday.json)")
     track.add_argument("--config", default="experiments/friday.json")
     track.set_defaults(func=cmd_track)

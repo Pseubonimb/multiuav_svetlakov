@@ -10,8 +10,10 @@ track.png и раздел "analysis" в summary.json. Исходные файл�
    miss_m — расстояние от этой точки до центра ворот. Пересечение дальше
    ATTEMPT_RADIUS_M от центра — не попытка (пролёт в другом месте коридора).
    Ворота, которые пропущены между двумя попытками, — строка со status=skipped.
-2. Затемнение — из occlusion_events.csv (как его включила программа: начало, конец,
-   фактическая длительность); если файла нет — по входу дрона в коробку зоны.
+2. Затемнение — из occlusion_events.csv (как его включила программа: перед какими воротами,
+   заданное N, начало, конец, момент пролёта, сколько летел вслепую); для старых попыток без
+   журнала — по входу дрона в коробку зоны. В gates.csv blind_ms — от начала затемнения до
+   пролёта, ms_after_occlusion_end — от его конца до пролёта (отрицательное — ещё темно).
 3. Нажатие SE — переход 0 → 1; относится к ближайшему по времени пролёту ворот,
    если он не дальше window_s; dt_ms = нажатие − пролёт (минус — раньше, плюс — позже).
 4. Касания — начала касаний (collided 0 → 1).
@@ -155,6 +157,25 @@ def find_occlusions(track: Track, flight: Flight, ok: np.ndarray, durations: lis
     return result
 
 
+def _event(e: dict, flight: Flight) -> dict:
+    """Строка occlusion_events.csv → затемнение. Новый журнал — по воротам («время до ворот»),
+    старый (до 11.11) — по зонам."""
+    on = int(e["t_on_ms"])
+    o = {"n": int(e["n"]), "t_start_ms": on, "t_s": float(np.interp(on, flight.ms, flight.t)),
+         "t_end_ms": int(e["t_off_ms"]), "dur_ms": int(e["actual_ms"])}
+    if "gate" in e:
+        o.update(gate=int(e["gate"]), gate_name=e["gate_name"], planned_ms=int(e["planned_ms"]),
+                 t_cross_ms=e.get("t_cross_ms", ""), blind_before_gate_ms=e.get("blind_before_gate_ms", ""),
+                 end=e.get("end", ""))
+    else:
+        o.update(zone=int(e["zone"]), zone_name=e["zone_name"], planned_ms=int(e["dur_ms"]))
+    return o
+
+
+def _where(o: dict):
+    return o.get("gate", o.get("zone"))
+
+
 def occlusion_at(occlusions: list[dict], ms: float) -> dict | None:
     for o in occlusions:
         if o["t_start_ms"] <= ms <= o["t_end_ms"] and o["dur_ms"] > 0:
@@ -172,7 +193,8 @@ def mark_gate_occlusions(gate_rows: list[dict], occlusions: list[dict]) -> None:
         before = [o for o in occlusions if prev < o["t_start_ms"] <= t and o["dur_ms"] > 0]
         if before:
             o = before[-1]
-            r.update(occlusion_before=1, occlusion_zone=o["zone"], occlusion_ms=o["dur_ms"],
+            r.update(occlusion_before=1, occlusion_gate=_where(o), occlusion_planned_ms=o.get("planned_ms", ""),
+                     occlusion_ms=o["dur_ms"], blind_ms=t - o["t_start_ms"],
                      ms_after_occlusion_end=t - o["t_end_ms"])
         else:
             r["occlusion_before"] = 0
@@ -219,7 +241,7 @@ def match_presses(presses: list[dict], crossings: list[dict], flight: Flight, tr
                      "lap": c["lap"], "gate": c["gate"], "gate_name": c["gate_name"],
                      "t_cross_ms": c["t_cross_ms"], "dt_ms": int(round(dt)),
                      "dist_m": float(np.linalg.norm(where - gate.center)),
-                     "occluded": int(o is not None), "occlusion_zone": "" if o is None else o["zone"],
+                     "occluded": int(o is not None), "occlusion_gate": "" if o is None else _where(o),
                      "nth_for_gate": seen[key]})
     return rows, unmatched
 
@@ -298,11 +320,7 @@ def analyze(folder: Path, track_path: Path | None = None, window_s: float = 2.0)
         r.setdefault("gate_name", track.gates[r["gate"]].name)
     events = read_csv(folder / "occlusion_events.csv")
     if events:  # как затемнение включала программа — точнее, чем по траектории
-        occlusions = [{"n": int(e["n"]), "zone": int(e["zone"]), "zone_name": e["zone_name"],
-                       "t_start_ms": int(e["t_on_ms"]),
-                       "t_s": float(np.interp(int(e["t_on_ms"]), flight.ms, flight.t)),
-                       "dur_ms": int(e["dur_ms"]), "t_end_ms": int(e["t_off_ms"]),
-                       "actual_ms": int(e["actual_ms"])} for e in events]
+        occlusions = [_event(e, flight) for e in events]
     else:
         occlusions = find_occlusions(track, flight, ok, durations)
     mark_gate_occlusions(gate_rows, occlusions)
@@ -313,14 +331,14 @@ def analyze(folder: Path, track_path: Path | None = None, window_s: float = 2.0)
 
     write_csv(folder / "gates.csv",
               ["lap", "gate", "gate_name", "status", "t_cross_ms", "t_s", "miss_m", "right_m", "up_m",
-               "occlusion_before", "occlusion_zone", "occlusion_ms", "ms_after_occlusion_end",
-               "occluded_at_cross"], gate_rows)
+               "occlusion_before", "occlusion_gate", "occlusion_planned_ms", "occlusion_ms", "blind_ms",
+               "ms_after_occlusion_end", "occluded_at_cross"], gate_rows)
     write_csv(folder / "occlusions.csv",
-              ["n", "zone", "zone_name", "t_start_ms", "t_s", "dur_ms", "t_end_ms", "actual_ms"],
-              occlusions)
+              ["n", "gate", "gate_name", "zone", "zone_name", "planned_ms", "t_start_ms", "t_s", "dur_ms",
+               "t_end_ms", "t_cross_ms", "blind_before_gate_ms", "end"], occlusions)
     write_csv(folder / "presses.csv",
               ["press_ms", "t_s", "lap", "gate", "gate_name", "t_cross_ms", "dt_ms", "dist_m",
-               "occluded", "occlusion_zone", "nth_for_gate"], press_rows)
+               "occluded", "occlusion_gate", "nth_for_gate"], press_rows)
     write_csv(folder / "contacts.csv", ["t_start_ms", "t_s", "object", "north", "east", "alt_m"],
               contact_rows)
     plot(folder, track, flight, gate_rows, contact_rows, track_data.get("walls", []))

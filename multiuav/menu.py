@@ -127,7 +127,7 @@ class Menu:
         self.occlusion = tk.StringVar(value=",".join(str(v) for v in self.cfg.get("occlusion_ms", [])))
         self.minutes = tk.StringVar(value=f"{self.cfg.get('duration_s', 1800) / 60:g}")
         for r, (text, var, width) in enumerate((("Код участника", self.code, 16),
-                                                ("Затемнение по зонам, мс", self.occlusion, 24),
+                                                ("Затемнение перед воротами, мс", self.occlusion, 24),
                                                 ("Длительность, мин", self.minutes, 8))):
             ttk.Label(form, text=text).grid(row=r, column=0, sticky="w", **pad)
             ttk.Entry(form, textvariable=var, width=width).grid(row=r, column=1, sticky="w", **pad)
@@ -138,7 +138,7 @@ class Menu:
                      state="readonly", width=44).grid(row=7, column=1, sticky="w", **pad)
         self.level.trace_add("write", lambda *_: self._on_level())
         self.directions = self._directions()
-        self.direction = tk.StringVar(value=self.directions.get(self.cfg.get("direction", "cw"), ""))
+        self.direction = tk.StringVar(value=self.directions.get(self._direction_key(self.cfg.get("direction", "cw")), ""))
         ttk.Label(form, text="Направление по трассе").grid(row=6, column=0, sticky="w", **pad)
         ttk.Combobox(form, textvariable=self.direction, values=list(self.directions.values()),
                      state="readonly", width=34).grid(row=6, column=1, sticky="w", **pad)
@@ -286,22 +286,31 @@ class Menu:
                     self.cfg.get("level", "hard"))
 
     def _on_level(self) -> None:
-        """Сменили уровень — своя карта и свой файл ворот и зон (и число зон в подписи)."""
+        """Сменили уровень — своя карта и свой файл ворот (и число ворот в подписи)."""
         from .experiment import apply_level
 
         key = next((k for k, v in self.directions.items() if v == self.direction.get()), "cw")
         self.cfg = apply_level(self.cfg, self._level_key())
         self.directions = self._directions()
-        self.direction.set(self.directions.get(key, ""))
+        self.direction.set(self.directions.get(self._direction_key(key), ""))
+
+    def _direction_key(self, key: str) -> str:
+        """cw/ccw ↔ forward/reverse — то же направление в файле трассы другого уровня."""
+        from .track import Track
+
+        try:
+            data = json.loads((REPO / self.cfg["track"]).read_text(encoding="utf-8"))
+        except (OSError, KeyError, ValueError):
+            return key
+        return Track.direction_key(data, key)
 
     def _directions(self) -> dict[str, str]:
-        """cw/ccw → подпись из файла трассы (и сколько там зон)."""
+        """Направления из файла трассы → подпись (и сколько там ворот)."""
         try:
             data = json.loads((REPO / self.cfg["track"]).read_text(encoding="utf-8"))
         except (OSError, KeyError, ValueError):
             return {"cw": "по часовой", "ccw": "против часовой"}
-        zones = len(data.get("zones", []))
-        return {k: f"{d.get('title', k)} (зон: {zones})"
+        return {k: f"{d.get('title', k)} (ворот: {len(d.get('gates', []))})"
                 for k, d in data.get("directions", {"cw": {}}).items()}
 
     def pick_color(self) -> None:

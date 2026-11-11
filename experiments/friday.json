@@ -2,22 +2,41 @@
   "participant": "P00",
   "occlusion_ms": [
     500,
+    1000,
+    0,
+    300,
     500,
     1000,
-    75,
-    500
+    0,
+    300,
+    500,
+    1000,
+    0,
+    300
   ],
+  "occlusion_margin_ms": 150,
+  "occlusion_cap_ms": 3000,
   "occlusion_color": "#969696",
   "occlusion_image": "",
   "camera_tilt_deg": 20,
   "duration_s": 1800,
   "direction": "cw",
-  "level": "hard",
+  "level": "easy1",
   "levels": {
-    "easy": {
-      "title": "Лёгкий — плоский пролёт по коридору",
+    "easy1": {
+      "title": "Лёгкий 1 — плоский коридор",
       "map": "/Game/FlyingCPP/Maps/Track_Easy",
       "track": "maps/Track_Easy.json"
+    },
+    "easy2": {
+      "title": "Лёгкий 2 — плоский коридор, зеркальный",
+      "map": "/Game/FlyingCPP/Maps/Track_Easy_Mirror",
+      "track": "maps/Track_Easy_Mirror.json"
+    },
+    "easy3": {
+      "title": "Лёгкий 3 — плоский коридор, старт после 7-х ворот, против часовой",
+      "map": "/Game/FlyingCPP/Maps/Track_Easy_Reverse",
+      "track": "maps/Track_Easy_Reverse.json"
     },
     "medium": {
       "title": "Средний — полёт с разными уровнями высоты",
@@ -35,8 +54,8 @@
   "mode": "acro",
   "model": "fast2.5",
   "rotor_drag": 0.035,
-  "track": "maps/FlyingExampleMap.json",
-  "map": "/Game/FlyingCPP/Maps/FlyingExampleMap",
+  "track": "maps/Track_Easy.json",
+  "map": "/Game/FlyingCPP/Maps/Track_Easy",
   "project": "~/Desktop/New_Karta_Vitali/Blocks.uproject",
   "engine": "~/Downloads/UnrealEngine5/Engine/Binaries/Linux/UnrealEditor",
   "quality": 1,

@@ -143,7 +143,7 @@ cd ~/Documents/multiuav_svetlakov && source .venv/bin/activate
 | `python -m multiuav experiment` | **меню эксперимента** (окно): участник, затемнения, цвет/картинка затемнения, проверка пульта, Старт/Стоп/К воротам/Обработать | `--config experiments/friday.json` |
 | `python -m multiuav launch ФАЙЛ.json` | одна попытка целиком (то, что делает «Старт»): settings.json → игра → запись пульта → полёт → закрыть всё | `--participant P07`, `--backend kinematic` (без Unreal), `--no-game`, `--no-sticks` |
 | `python -m multiuav analyze ПАПКА` | обработка попытки: ворота, затемнения, нажатия SE | `--window 2` (с), `--track` |
-| `python -m multiuav track edit\|export\|reset\|save\|restore\|variants` | ворота и зоны карты: редактор / выгрузить / поставить заново / эталон / уровни сложности из сложной карты | `--level easy\|medium\|hard` |
+| `python -m multiuav track edit\|export\|reset\|save\|restore\|variants\|easy` | ворота карты: редактор / выгрузить / поставить заново / эталон / средний из сложного / три лёгкие из Track_Easy | `--level easy1\|easy2\|easy3\|medium\|hard` |
 | `scripts/demo.sh` | всё сразу: settings → Unreal → камеры → run | см. ниже |
 | `scripts/physics_tests/run_model.sh МОДЕЛЬ` | замер физики модели дрона | `RD=0.035`, `TESTS=…`, `ALT=1` |
 | `python -m pytest -q` | автотесты | — |
@@ -260,10 +260,16 @@ python -m multiuav experiment
 затем `python -m multiuav analyze runs/P07/<папка>`. Проверить без Unreal:
 `python -m multiuav launch experiments/friday.json --participant test --backend kinematic --no-sticks`.
 
-Уровни сложности (поле в меню): **лёгкий** — `Track_Easy`, плоский коридор, только ворота;
-**средний** — `Track_Medium`, перепады высоты без препятствий; **сложный** —
-`FlyingExampleMap`, всё вместе. Правки трассы делать только в сложной карте, затем
-`python -m multiuav track variants` пересоберёт лёгкую и среднюю.
+Уровни сложности (поле в меню): **лёгкий 1** — `Track_Easy`, плоский коридор, 12 ворот;
+**лёгкий 2** — `Track_Easy_Mirror`, он же зеркально; **лёгкий 3** — `Track_Easy_Reverse`, старт
+после 7-х ворот, против часовой; **средний** — `Track_Medium`, перепады высоты без препятствий;
+**сложный** — `FlyingExampleMap`, всё вместе. Лёгкие пересобирает `python -m multiuav track
+easy` (из `Track_Easy`), средний — `python -m multiuav track variants` (из сложной).
+
+Затемнение — «по времени до ворот»: поле «Затемнение перед воротами, мс» — N для каждых ворот
+по кругу (0 — без затемнения). Экран гаснет за N мс до ворот (прогноз по скорости) и
+открывается только после их пролёта (+150 мс), но не позже чем через 3 с
+(`occlusion_margin_ms`, `occlusion_cap_ms` в `experiments/friday.json`).
 
 Карта: `~/Desktop/New_Karta_Vitali`, `/Game/FlyingCPP/Maps/FlyingExampleMap` (в `BigTrackMap`
 трассы нет — это пустой шаблон Open World). Ворота и затемнение в карту ставит

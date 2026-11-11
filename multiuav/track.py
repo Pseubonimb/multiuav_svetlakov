@@ -103,9 +103,7 @@ class Track:
     def from_dict(cls, data: dict, direction: str = "cw") -> Track:
         """direction — cw (по часовой) или ccw: зоны и ворота нумеруются по ходу полёта."""
         if "directions" in data:
-            if direction not in data["directions"]:
-                raise ValueError(f"нет направления {direction}, есть: {', '.join(data['directions'])}")
-            d = data["directions"][direction]
+            d = data["directions"][cls.direction_key(data, direction)]
             raw_zones = [data["zones"][i] for i in d["zones"]]
             raw_gates = d["gates"]
             heading = d["start_heading_deg"]
@@ -119,6 +117,18 @@ class Track:
                  for k, z in enumerate(raw_zones)]
         return cls(data.get("map", ""), gates, zones, math.radians(float(heading)))
 
+
+    @staticmethod
+    def direction_key(data: dict, direction: str) -> str:
+        """Направление в файле трассы: cw/ccw (сложная, средняя) или forward/reverse (лёгкие)."""
+        dirs = data.get("directions", {})
+        alias = {"cw": "forward", "ccw": "reverse", "forward": "cw", "reverse": "ccw"}
+        for key in (direction, alias.get(direction)):
+            if key in dirs:
+                return key
+        if not dirs:
+            return direction
+        return next(iter(dirs))
 
     def gate_passed(self, p0: np.ndarray, p1: np.ndarray) -> list[tuple[Gate, float]]:
         """Ворота, через проём которых прошёл отрезок p0→p1, и доля отрезка."""

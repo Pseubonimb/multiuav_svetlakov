@@ -210,7 +210,7 @@ class TrialRecorder:
         backend.reset(0, target, heading)
         self._prev = None  # скачок телепорта — не пролёт ворот
         if self.occluder is not None:
-            self.occluder.forget()
+            self.occluder.forget(gate + 1)
         ms = time.time_ns() // 1_000_000
         self.resets.row([ms, f"{self.t_s():.3f}", gate, name, source,
                          *(f"{v:.3f}" for v in pos), *(f"{v:.3f}" for v in target)], sync=True)

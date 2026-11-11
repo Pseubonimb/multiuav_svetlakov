@@ -449,7 +449,8 @@ def main(argv):
     print(f"MULTIUAV: записано {args.out}: зон {len(out_zones)}")
 
 
-argv = sys.argv[1:]
-if len(argv) == 1 and " " in argv[0]:
-    argv = shlex.split(argv[0])
-main(argv)
+if not getattr(sys, "_multiuav_import", False):  # easy_tracks.py берёт отсюда функции
+    argv = sys.argv[1:]
+    if len(argv) == 1 and " " in argv[0]:
+        argv = shlex.split(argv[0])
+    main(argv)
